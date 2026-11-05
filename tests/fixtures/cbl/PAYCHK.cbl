@@ -1,0 +1,36 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PAYCHK.
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT PAY-FILE ASSIGN TO PAYIN
+               ORGANIZATION IS SEQUENTIAL.
+           SELECT REJ-FILE ASSIGN TO PAYREJ.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY PAYREC.
+       01 WS-NEXT-PGM          PIC X(8)
+                               VALUE 'PAYPOST'.
+       01 WS-REASON            PIC 9(3) VALUE 0.
+      * A COMMENT THAT SAYS CALL 'NOTREAL'
+       PROCEDURE DIVISION.
+           OPEN INPUT PAY-FILE
+           OPEN OUTPUT REJ-FILE
+           PERFORM 1000-CHECK-AMOUNT
+           PERFORM UNTIL WS-REASON > 0
+               CONTINUE
+           END-PERFORM
+           CALL WS-NEXT-PGM
+           DISPLAY 'CALL FAILED IF THIS SHOWS'
+           GOBACK.
+       1000-CHECK-AMOUNT.
+           IF PAY-AMT > 5000
+               MOVE 200 TO WS-REASON
+               MOVE 'AMOUNT OVER LIMIT' TO PAY-MSG
+           END-IF
+           PERFORM 2000-LOG THRU 2000-EXIT.
+       
+       2000-LOG.
+           DISPLAY PAY-MSG.
+       2000-EXIT.
+           EXIT.

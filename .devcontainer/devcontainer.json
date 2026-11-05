@@ -1,0 +1,16 @@
+{
+  "name": "legacylens",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "hostRequirements": { "cpus": 2, "memory": "4gb" },
+  "postCreateCommand": "pip install -e '.[dev,ui]' && make data",
+  "forwardPorts": [8501],
+  "portsAttributes": { "8501": { "label": "LegacyLens UI" } },
+  "secrets": {
+    "LLM_BASE_URL": { "description": "OpenAI-compatible endpoint, e.g. https://api.groq.com/openai/v1" },
+    "LLM_API_KEY": { "description": "API key for that endpoint (empty for Ollama on Colab)" },
+    "LLM_MODEL": { "description": "Model name, e.g. llama-3.3-70b-versatile" }
+  },
+  "customizations": {
+    "vscode": { "extensions": ["ms-python.python", "charliermarsh.ruff", "bierner.markdown-mermaid"] }
+  }
+}
