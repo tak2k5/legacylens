@@ -41,6 +41,10 @@ def text_msg(text):
     return NS(choices=[NS(message=NS(content=text, tool_calls=None))], usage=NS(prompt_tokens=50, completion_tokens=40))
 
 
+def read(i=0):
+    return tool_msg("read_paragraph", {"program": "PAYCHK", "paragraph": "1000-CHECK-AMOUNT", "n": i}, f"r{i}")
+
+
 class FakeClient:
     def __init__(self, script):
         self.script = list(script)
@@ -71,6 +75,7 @@ def test_agent_extracts_rules_and_blocks_repeated_calls(idx):
     assert checks[0]["valid"] and "5000" in checks[0]["evidence"]
     assert (trace.steps, trace.tool_calls, trace.blocked_repeats) == (3, 2, 1)
     assert trace.prompt_tokens == 250 and trace.completion_tokens == 60
+    assert trace.max_prompt_tokens == 100
     assert "Vietnamese" in client.requests[0][1]["content"]
     tool_results = [m["content"] for m in client.requests[2] if m["role"] == "tool"]
     assert "5000" in tool_results[0] and tool_results[1].startswith("BLOCKED")
@@ -79,10 +84,38 @@ def test_agent_extracts_rules_and_blocks_repeated_calls(idx):
 def test_agent_repairs_invalid_json(idx):
     bad = {"program": "PAYCHK", "purpose": "x", "rules": [{**RULE, "citations": []}]}
     good = {"program": "PAYCHK", "purpose": "x", "rules": [RULE]}
-    client = FakeClient([text_msg(json.dumps(bad)), text_msg(json.dumps(good))])
+    client = FakeClient([read(0), read(1), text_msg(json.dumps(bad)), text_msg(json.dumps(good))])
     rules, _, trace = Agent(idx, client=client, model="fake").extract_rules("PAYCHK")
     assert trace.repairs == 1 and len(rules.rules) == 1
-    assert "invalid" in client.requests[1][-1]["content"]
+    assert "invalid" in client.requests[3][-1]["content"]
+
+
+def test_agent_sends_model_back_to_the_code(idx):
+    good = {"program": "PAYCHK", "purpose": "x", "rules": [RULE]}
+    client = FakeClient([text_msg(""), text_msg(json.dumps(good)), read(0), read(1), text_msg(json.dumps(good))])
+    rules, _, trace = Agent(idx, client=client, model="fake").extract_rules("PAYCHK")
+    assert (trace.nudges, trace.tool_calls, trace.repairs) == (2, 2, 0)
+    assert "empty" in client.requests[1][-1]["content"]
+    assert "without reading" in client.requests[2][-1]["content"]
+
+
+def test_merge_stream_rebuilds_tool_calls():
+    from legacylens.agent import merge_stream
+
+    def chunk(content=None, calls=None, finish=None, usage=None):
+        choices = [] if usage else [NS(delta=NS(content=content, tool_calls=calls), finish_reason=finish)]
+        return NS(choices=choices, usage=usage)
+
+    fn = NS
+    chunks = [
+        chunk(calls=[NS(index=0, id="t1", function=fn(name="read_lines", arguments='{"program": '))]),
+        chunk(calls=[NS(index=0, id=None, function=fn(name=None, arguments='"PAYCHK"}'))]),
+        chunk(content="ok", finish="tool_calls"),
+        chunk(usage=NS(prompt_tokens=7, completion_tokens=3)),
+    ]
+    msg, finish, usage = merge_stream(chunks)
+    assert msg.content == "ok" and finish == "tool_calls" and usage.prompt_tokens == 7
+    assert msg.tool_calls[0].id == "t1" and json.loads(msg.tool_calls[0].function.arguments) == {"program": "PAYCHK"}
 
 
 def test_agent_gives_up_after_budget(idx):
@@ -99,7 +132,7 @@ def test_ask_checks_citations(idx):
             {"program": "PAYCHK", "start_line": 900, "end_line": 901},
         ],
     }
-    answer, checks, _ = Agent(idx, client=FakeClient([text_msg(json.dumps(ans))]), model="fake").ask("who?")
+    answer, checks, _ = Agent(idx, client=FakeClient([read(), text_msg(json.dumps(ans))]), model="fake").ask("who?")
     assert [c["valid"] for c in checks] == [True, False]
 
 
@@ -226,7 +259,7 @@ def test_cli_eval_qa_with_fake_llm(tmp_path, monkeypatch, capsys):
         + "\n"
     )
     ans = {"answer": "Over 5000 is flagged.", "citations": [{"program": "PAYCHK", "start_line": 27, "end_line": 28}]}
-    monkeypatch.setattr(agent_mod, "make_client", lambda: FakeClient([text_msg(json.dumps(ans))]))
+    monkeypatch.setattr(agent_mod, "make_client", lambda: FakeClient([read(), text_msg(json.dumps(ans))]))
     out = tmp_path / "qa.md"
     main(["--src", str(FIX), "eval-qa", "--questions", str(qfile), "--out", str(out), "--model", "fake"])
     assert "| Correct (keywords + citation) | 1 (100.0%) |" in out.read_text()
@@ -265,3 +298,23 @@ def test_llm_settings_accepts_project_and_provider_names():
     assert llm_settings({"LLM_BASE_URL": "http://colab/v1"})["api_key"] == "not-needed"
     with pytest.raises(RuntimeError, match="No LLM endpoint"):
         llm_settings({})
+
+
+def test_context_warning(idx, monkeypatch, capsys):
+    monkeypatch.setenv("LLM_CONTEXT", "1000")
+    agent = Agent(idx, client=FakeClient([read(), text_msg(json.dumps({"answer": "x", "citations": []}))]))
+    agent.ask("q")
+    assert "WARNING" not in capsys.readouterr().err
+    agent.context = 50
+    agent.client = FakeClient([read(), text_msg(json.dumps({"answer": "x", "citations": []}))])
+    agent.ask("q")
+    assert "WARNING" in capsys.readouterr().err
+
+
+def test_streaming_is_on_for_colab_tunnels(idx, monkeypatch):
+    monkeypatch.delenv("LLM_STREAM", raising=False)
+    tunnel = NS(base_url="https://abc.trycloudflare.com/v1/", chat=None)
+    assert Agent(idx, client=tunnel).stream is True
+    assert Agent(idx, client=NS(base_url="https://api.groq.com/openai/v1", chat=None)).stream is False
+    monkeypatch.setenv("LLM_STREAM", "0")
+    assert Agent(idx, client=tunnel).stream is False

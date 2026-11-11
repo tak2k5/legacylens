@@ -49,17 +49,18 @@ và mọi câu nó viết phải chỉ được dòng code làm bằng chứng.
 
 ## Chạy
 
-Không cần GPU, chạy được trên Codespaces 2 nhân. Phần LLM dùng bất kỳ API tương thích OpenAI: Gemini hoặc Groq gói
-miễn phí, hoặc Ollama trên Colab T4 qua `notebooks/colab_llm.ipynb`.
+Không cần GPU, chạy được trên Codespaces 2 nhân. Phần LLM mặc định là mô hình open-weight Qwen2.5 Instruct chạy bằng
+Ollama trên Colab T4 miễn phí (`notebooks/colab_llm.ipynb` in ra URL để điền vào `.env`). Code gọi qua API kiểu
+OpenAI nên cũng chạy với vLLM, LiteLLM hay API trả phí mà không phải sửa.
 
 ```bash
 make install            # thư viện
-make test               # 27 test offline, LLM giả lập, vài giây (1 test cần `make data`)
+make test               # 31 test offline, LLM giả lập, vài giây (1 test cần `make data`)
 make data               # tải CardDemo
 make stats graph        # thống kê + reports/graph.json, reports/graph.mmd
 make check-gold         # nhãn tay trong gold/ phải trích đúng dòng
 make review PROG=COSGN00C   # xem nhãn tay cạnh dòng code để duyệt
-cp .env.example .env    # điền LLM_BASE_URL, LLM_API_KEY, LLM_MODEL (hoặc đặt làm Codespaces secrets)
+cp .env.example .env    # dán 4 dòng LLM_ mà notebook Colab in ra (hoặc đặt làm Codespaces secrets)
 make ask Q="Where is the password checked?"  # thử khóa LLM
 make extract PROGS="CBTRN02C COSGN00C"   # agent trích rule -> out/rules/, chi phí -> reports/runs.jsonl
 make doc PROGS="CBTRN02C"                # docs/generated/CBTRN02C.vi.md và .ja.md
