@@ -250,6 +250,29 @@ def cmd_gold_edit(args) -> None:
             )
 
 
+def cmd_readme(args) -> None:
+    from .readme import fill
+
+    path = Path(args.readme)
+    human = None
+    if args.read_min:
+        human = {
+            "read_min": args.read_min,
+            "tool_min": args.tool_min,
+            "read_ok": args.read_ok,
+            "tool_ok": args.tool_ok,
+            "people": args.people,
+        }
+    try:
+        text, changed = fill(path.read_text(encoding="utf-8"), Path(args.reports), human, args.attempt, args.video)
+    except ValueError as exc:
+        sys.exit(f"README not changed: {exc}")
+    path.write_text(text, encoding="utf-8")
+    print("updated: " + (", ".join(changed) if changed else "nothing (no report found, run make eval first)"))
+    left = text.count("[X]")
+    print(f"{left} [X] left in README" if left else "no [X] left in README")
+
+
 def cmd_eval(args) -> None:
     idx = _index(args)
     gold = load_rules(args.gold)
@@ -354,6 +377,14 @@ def main(argv: list[str] | None = None) -> None:
     ge.add_argument("--field", default="summary")
     ge.add_argument("--gold", default="gold/rules.jsonl")
     ge.set_defaults(fn=cmd_gold_edit)
+    rd = sub.add_parser("readme", help="Write measured numbers from reports/ into the README results table")
+    rd.add_argument("--readme", default="README.md")
+    rd.add_argument("--reports", default="reports")
+    rd.add_argument("--attempt", default=None, help="Also add a row to the attempts table, with this description")
+    rd.add_argument("--video", default=None)
+    for name in ("read-min", "tool-min", "read-ok", "tool-ok", "people"):
+        rd.add_argument(f"--{name}", default=None)
+    rd.set_defaults(fn=cmd_readme)
     e = sub.add_parser("eval", help="Score extracted rules against gold labels")
     e.add_argument("--gold", default="gold/rules.jsonl")
     e.add_argument("--pred", default="out/rules")

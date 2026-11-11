@@ -12,7 +12,7 @@ Q ?= Which program validates the user id and password at sign-on?
 # .env là tùy chọn: không có thì dùng biến môi trường (Codespaces secrets)
 LOADENV = if [ -f .env ]; then set -a; . ./.env; set +a; fi;
 
-.PHONY: help install data test lint stats graph check-gold review gold-ok gold-set gold-lines gold-fix gold-add gold-copy gold-del ask extract doc eval eval-qa ui
+.PHONY: help install data test lint stats graph check-gold review gold-ok gold-set gold-lines gold-fix gold-add gold-copy gold-del ask extract doc eval eval-qa readme ui
 
 help:          ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*##' Makefile | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -56,5 +56,8 @@ eval:          ## Chấm điểm rule trích ra so với nhãn tay -> reports/ev
 	$(CLI) eval --gold gold/rules.jsonl --pred out/rules --out reports/eval.md
 eval-qa:       ## Agent trả lời 20 câu onboarding, chấm tự động (cần khóa LLM) -> reports/eval_qa.md
 	$(LOADENV) $(CLI) eval-qa $(ARGS)
+readme:        ## Chép số đo vào bảng Kết quả của README. Thêm NOTE="..." để ghi một lần thử, VIDEO=link để thêm video
+	$(CLI) readme $(if $(NOTE),--attempt "$(NOTE)") $(if $(VIDEO),--video "$(VIDEO)") \
+	  $(if $(READ_MIN),--read-min "$(READ_MIN)" --tool-min "$(TOOL_MIN)" --read-ok "$(READ_OK)" --tool-ok "$(TOOL_OK)" --people "$(PEOPLE)")
 ui:            ## Giao diện hỏi đáp (Streamlit)
 	$(LOADENV) PYTHONPATH=src LEGACYLENS_SRC=$(SRC) streamlit run app.py --server.headless true

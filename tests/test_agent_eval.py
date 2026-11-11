@@ -357,3 +357,46 @@ def test_gold_edit_commands(tmp_path, capsys):
     added = json.loads(gold.read_text().splitlines()[-1])
     assert list(added)[:3] == ["id", "program", "paragraph"] or list(added)[:2] == ["id", "program"]
     assert added["fields"] == ["PAY-AMT", "WS-REASON"] and added["citations"][0]["end_line"] == 29
+
+
+def test_readme_fill(tmp_path):
+    from legacylens.readme import fill
+
+    readme = (Path(__file__).parent.parent / "README.md").read_text()
+    rep = tmp_path
+    (rep / "eval.json").write_text(
+        json.dumps({"programs": ["A"], "precision": 0.5, "recall": 0.25, "f1": 1 / 3, "citation_validity": 0.9})
+    )
+    runs = [
+        {"program": "A", "model": "m1", "prompt_tokens": 1, "completion_tokens": 1, "seconds": 1},
+        {"program": "A", "model": "qwen", "prompt_tokens": 90, "completion_tokens": 10, "seconds": 20},
+        {"program": "B", "model": "qwen", "prompt_tokens": 999, "completion_tokens": 1, "seconds": 99},
+    ]
+    (rep / "runs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in runs))
+    (rep / "eval_qa.json").write_text(
+        json.dumps({"summary": {"correct": 12, "questions": 20, "citation_hit_rate": 0.7, "model": "qwen"}})
+    )
+    human = {"read_min": "40", "tool_min": "15", "read_ok": "7", "tool_ok": "9", "people": "2 người"}
+    text, _ = fill(readme, rep)
+    text, _ = fill(text, rep, human)
+    text, _ = fill(text, rep, video="https://youtu.be/x")
+    text, _ = fill(text, rep, attempt="Bản đầu")
+    (rep / "eval.json").write_text(json.dumps({"programs": ["A"], "precision": 0.1, "recall": 0.1, "f1": 0.1}))
+    after, _ = fill(text, rep, attempt="Worse")
+    assert "| Precision / Recall / F1 | 50.0% / 25.0% / 33.3% |" in after and "10.0% / 10.0% / 10.0%" in after
+    assert "| Precision / Recall / F1 | 50.0% / 25.0% / 33.3% |" in text
+    assert "100 token, 20.0 giây (mô hình qwen)" in text  # latest run of scored programs only
+    assert "12/20, trích đúng dòng 70.0%" in text and "40 / 15 phút mỗi câu; đúng 7 / 9 (2 người)" in text
+    assert "| 1 | Bản đầu | qwen | 50.0% / 25.0% / 33.3% | 100 |" in text
+    assert "[X]" not in text and "Video demo 2 phút: https://youtu.be/x" in text
+    text2, _ = fill(text, rep, attempt="Lần hai")
+    assert "| 2 | Lần hai |" in text2 and text2.count("### Các lần thử") == 1
+
+
+def test_extra_rules_reach_the_prompt(idx, monkeypatch):
+    monkeypatch.setenv("LLM_EXTRA_RULES", "Each WHEN branch is a separate rule.")
+    final = {"program": "PAYCHK", "purpose": "x", "rules": [RULE]}
+    client = FakeClient([read(0), read(1), text_msg(json.dumps(final))])
+    Agent(idx, client=client, model="fake").extract_rules("PAYCHK")
+    system = client.requests[0][0]["content"]
+    assert "- Each WHEN branch is a separate rule.\n\nWhen done," in system

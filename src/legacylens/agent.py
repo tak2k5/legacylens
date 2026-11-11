@@ -149,6 +149,9 @@ class Agent:
     def extract_rules(self, program: str, lang: str = "en") -> tuple[RuleSet, list[dict], Trace]:
         prog = self.index.program(program)
         system = SYSTEM_RULES.format(schema=json.dumps(RuleSet.model_json_schema()))
+        extra = os.getenv("LLM_EXTRA_RULES", "").strip()  # one-line prompt experiments without editing code
+        if extra:
+            system = system.replace("\n\nWhen done,", f"\n- {extra}\n\nWhen done,", 1)
         user = (
             f"Extract the business rules of program {prog.program_id}. Write purpose, summary, condition and "
             f"outcome in {LANGUAGES.get(lang, 'English')}; keep COBOL names, codes and messages as in the code."
