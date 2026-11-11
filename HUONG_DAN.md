@@ -17,7 +17,8 @@ File riêng cho Kiet. Xóa trước khi để repo Public (bước 12).
 | 11 | Kiểm tra lại lỗi CBACT04C | 15 phút |
 | 12 | Hoàn tất: README, video, Public, CV | 1-2 giờ |
 
-Làm đúng thứ tự từ trên xuống dưới, bắt đầu ở bước 5.0. Các mục ghi **"Chỉ khi cần"** thì bỏ qua nếu không gặp tình
+Làm đúng thứ tự từ trên xuống dưới, bắt đầu ở bước 5.0. Từ bước 6 trở đi, mọi việc trong terminal chỉ cần dán
+cả khối, không phải sửa gì (quy tắc ở đầu bước 6). Các mục ghi **"Chỉ khi cần"** thì bỏ qua nếu không gặp tình
 huống đó. Các bước đã làm (0-4.9 và phần cập nhật repo) nằm ở Phụ lục C để tra lại.
 
 Mỗi bước có:
@@ -210,8 +211,7 @@ Colab miễn phí tự ngắt khi để yên khoảng 90 phút, và mỗi phiên
 Khi quay lại:
 
 1. Colab: **Runtime > Run all** (5.4). Lần này nhanh hơn nếu runtime chưa bị xóa.
-2. Chép 4 dòng `LLM_` mới vào `.env` (5.5).
-3. Chạy lại 5.6 để kiểm tra.
+2. Dán khối ở bước 6.2 để chép 4 dòng `LLM_` mới vào `.env`. Khối đó tự kiểm tra kết nối.
 
 Trong lúc chạy `make extract` hay `make eval-qa`, thỉnh thoảng bấm vào tab Colab để nó không bị coi là để yên.
 
@@ -235,39 +235,142 @@ Có hai cách, theo thứ tự nên thử:
 
 ## Bước 6. Agent trích rule cho 5 chương trình
 
-**Ở đâu:** terminal Codespace. Tab Colab phải đang chạy (bước 5). Trên T4, mỗi chương trình mất vài phút.
+**Cách dán từ bước 6 trở đi (áp dụng cho mọi khối bên dưới):**
 
-### 6.1. Chạy chương trình đầu tiên
+- Mỗi khối tự `cd /workspaces/legacylens`, nên dán ở terminal nào của Codespace cũng được.
+- Dán **cả khối** một lần và không sửa gì trong khối. Không có chỗ nào phải thay số hay thay tên.
+- Một số khối hỏi bạn ở dòng cuối, ví dụ số câu đúng, link video, hay một câu ghi chú. Câu hỏi chỉ hiện ra sau khi
+  các lệnh khác đã chạy xong. Gõ câu trả lời rồi nhấn Enter.
+- Khối chạy lâu được làm để **dán lại an toàn**: nếu Colab ngắt giữa chừng, làm 6.2 rồi dán lại đúng khối đó. Các
+  chương trình đã xong sẽ được bỏ qua.
+- Khối nào đẩy lên GitHub cũng kiểm tra trước: nếu sắp đẩy `.env` hoặc `data/` thì in `DỪNG` và không đẩy.
+- Thấy `DỪNG` thì làm theo câu in ra ngay sau chữ `DỪNG`. Không hiểu thì gửi log cho mình, đừng làm tiếp.
+
+### 6.1. Kiểm tra Codespace còn nối được với Colab
+
+**Ở đâu:** terminal Codespace. Tab Colab đã chạy xong 5.4.
+
+**Làm:**
 
 ```bash
 cd /workspaces/legacylens
-make extract PROGS=COSGN00C
+test -f .env || echo "THIẾU .env: làm 6.2"
+set -a; . ./.env 2>/dev/null; set +a
+echo "Mô hình trong .env: $LLM_MODEL"
+curl -sf -m 20 "$LLM_BASE_URL/models" | grep -o '"id":"[^"]*"' || echo "CHƯA NỐI ĐƯỢC: làm 6.2"
 ```
 
-**Đúng khi:** in một dòng dạng
-`COSGN00C: 8 rules, 8 pass the citation check, 11 tool calls (0 repeats blocked), 41230+2210 tokens, 38.5s`,
-với `tool calls` **lớn hơn 0**. Bằng 0 nghĩa là mô hình không đọc code: dán lại khối trên một lần. Vẫn 0 thì làm 5.9.
+**Đúng khi:** dòng cuối dạng `"id":"qwen2.5:7b-instruct"`, cùng tên với dòng `Mô hình trong .env`. Nếu đúng thì
+**bỏ qua 6.2**, sang 6.3. Nếu thấy `THIẾU .env` hoặc `CHƯA NỐI ĐƯỢC`, làm 6.2.
 
-### 6.2. Chạy 4 chương trình còn lại
+### 6.2. Chỉ khi cần: nối lại Colab
+
+Dùng mục này mỗi khi Colab ngắt, kể cả ở các bước sau. Dấu hiệu là 6.1 in `CHƯA NỐI ĐƯỢC`, hoặc một lệnh in
+`Connection error`, `530`, `1033`, `524`, `Name or service not known`, hoặc `DỪNG: chưa nối được Colab`.
+
+**Làm:**
+
+1. Tab Colab: menu **Runtime > Run all**. Chờ 5-8 phút tới khi ô 7 in 4 dòng bắt đầu bằng `LLM_`.
+2. Bôi đen đúng 4 dòng `LLM_` đó, nhấn Ctrl+C.
+3. Tab Codespace, dán khối này:
 
 ```bash
-make extract PROGS="COBIL00C CBTRN02C CBACT04C COTRN02C"
+cd /workspaces/legacylens
+cat > /tmp/noi_colab.sh <<'EOF'
+echo ""
+echo ">>> Dán 4 dòng LLM_ (Ctrl+V), nhấn Enter, rồi nhấn Ctrl+D:"
+grep '^LLM_' > /tmp/env_moi
+if ! grep -q '^LLM_BASE_URL=http' /tmp/env_moi; then
+  echo "DỪNG: không thấy dòng LLM_BASE_URL. File .env cũ giữ nguyên. Chép lại 4 dòng ở Colab rồi dán lại khối này."
+  exit 1
+fi
+mv /tmp/env_moi .env && echo "đã lưu .env"
+set -a; . ./.env; set +a
+echo "Đang chờ đường hầm mới (tối đa 1 phút)..."
+for i in 1 2 3 4 5 6; do
+  curl -sf -m 20 "$LLM_BASE_URL/models" | grep -o '"id":"[^"]*"' && exit 0
+  sleep 10
+done
+echo "CHƯA NỐI ĐƯỢC: xem tab Colab, ô 7 có in URL chưa và góc phải còn chữ T4 không. Rồi dán lại khối này."
+EOF
+bash /tmp/noi_colab.sh
 ```
 
-**Đúng khi:** 4 dòng giống 6.1, không dòng nào có `FAILED`.
+4. Khi thấy `>>> Dán 4 dòng LLM_`, nhấn Ctrl+V, Enter, rồi Ctrl+D.
 
-### 6.3. Chỉ khi cần: có chương trình bị lỗi
+**Đúng khi:** in `đã lưu .env` rồi một dòng `"id":"qwen2.5:7b-instruct"` (hoặc tên mô hình bạn đang chạy).
 
-Cuối lệnh có dòng `failed: ... make extract PROGS="..."`. Xử lý theo lỗi in ra, rồi dán đúng lệnh đó:
+**Nếu lỗi:** Colab báo `Cannot connect to GPU backend` nghĩa là hết GPU miễn phí. Chờ vài giờ. Trong lúc chờ, làm
+trước bước 11 (không cần Colab).
 
-- `Connection error`, `530`, `1033`, `524`: Colab đã ngắt. Làm 5.8 rồi chạy lại.
-- `did not return valid JSON`: chạy lại một lần. Vẫn lỗi thì làm 5.9.
-- `WARNING: a request used ... context tokens`: chạy lại với ít bước hơn, ví dụ
-  `make extract PROGS=COTRN02C ARGS="--max-steps 10"`.
+### 6.3. Chạy agent cho cả 5 chương trình (30-90 phút)
 
-### 6.4. Kiểm tra cả 5 chương trình
+**Ở đâu:** terminal Codespace. Thỉnh thoảng bấm vào tab Colab để nó không bị coi là để yên.
+
+**Làm:**
 
 ```bash
+cd /workspaces/legacylens
+bash -e <<'EOF'
+test -f .env || { echo "DỪNG: chưa có .env. Làm 6.2 rồi dán lại khối này."; exit 1; }
+set -a; . ./.env; set +a
+curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
+if [ ! -d out/lan1 ]; then
+  mkdir -p out/lan1/cu
+  mv out/rules out/lan1/cu/ 2>/dev/null || true
+  mv reports/runs.jsonl out/lan1/cu/ 2>/dev/null || true
+fi
+for p in COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C; do
+  if [ -f out/lan1/$p.xong ]; then echo "$p: đã xong ở lần trước, bỏ qua"; continue; fi
+  make extract PROGS=$p
+  if tail -1 reports/runs.jsonl | grep -qE '"tool_calls": 0[,}]'; then
+    echo "DỪNG: $p có 0 tool calls, mô hình không đọc code. Dán lại khối này."; exit 1
+  fi
+  touch out/lan1/$p.xong
+done
+echo "XONG: đủ 5 chương trình"
+EOF
+```
+
+Khối chạy từng chương trình một. Kết quả cũ từ trước bước này (nếu có) được cất vào `out/lan1/cu`, nên không lẫn vào
+điểm.
+
+**Đúng khi:** mỗi chương trình in một dòng dạng
+`COSGN00C: 8 rules, 8 pass the citation check, 11 tool calls (0 repeats blocked), 41230+2210 tokens, 38.5s`, và dòng
+cuối là `XONG: đủ 5 chương trình`.
+
+**Nếu lỗi:** dừng ở giữa thì xem dòng ngay trên:
+
+| Thấy | Làm |
+| --- | --- |
+| `DỪNG: chưa nối được Colab`, `Connection error`, `530`, `1033`, `524` | 6.2, rồi dán lại khối 6.3 |
+| `DỪNG: ... 0 tool calls` hoặc `did not return valid JSON` | Dán lại khối 6.3. Cùng một chương trình lỗi 3 lần thì làm 5.9 |
+| `WARNING: a request used ... context tokens` rồi dừng | Dán khối 6.4 |
+
+### 6.4. Chỉ khi cần: một chương trình cứ lỗi vì quá dài
+
+Khối này giống 6.3 nhưng giới hạn agent ở 10 bước đọc code, để hội thoại không vượt cửa sổ ngữ cảnh.
+
+```bash
+cd /workspaces/legacylens
+bash -e <<'EOF'
+set -a; . ./.env; set +a
+curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
+for p in COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C; do
+  if [ -f out/lan1/$p.xong ]; then echo "$p: đã xong, bỏ qua"; continue; fi
+  make extract PROGS=$p ARGS="--max-steps 10"
+  touch out/lan1/$p.xong
+done
+echo "XONG: đủ 5 chương trình"
+EOF
+```
+
+**Đúng khi:** dòng cuối là `XONG: đủ 5 chương trình`.
+
+### 6.5. Kiểm tra cả 5 chương trình
+
+```bash
+cd /workspaces/legacylens
 python3 - <<'PY'
 import json
 rows = {}
@@ -275,70 +378,102 @@ for line in open("reports/runs.jsonl"):
     r = json.loads(line); rows[r["program"]] = r
 for p in ["COSGN00C", "COBIL00C", "CBTRN02C", "CBACT04C", "COTRN02C"]:
     r = rows.get(p)
-    print(f"{p}: " + ("CHƯA CHẠY" if not r else f"{r['rules']} rules, {r['citations_ok']} trích đúng, {r['tool_calls']} tool calls"
-          + ("  <- chạy lại (0 tool calls)" if r["tool_calls"] == 0 else "")))
+    print(f"{p}: " + ("CHƯA CHẠY, dán lại 6.3" if not r else f"{r['rules']} rules, {r['citations_ok']} trích đúng, {r['tool_calls']} tool calls"))
 PY
 ```
 
-**Đúng khi:** đủ 5 dòng, không dòng nào có `CHƯA CHẠY` hay `chạy lại`.
+**Đúng khi:** đủ 5 dòng, không dòng nào có `CHƯA CHẠY`.
 
-**Đẩy:** chưa đẩy. Số liệu đẩy ở bước 7.
+**Ghi lại:** không có gì. Số liệu được ghi tự động ở bước 7.
+
+**Đẩy:** chưa đẩy. Bước 7 đẩy cùng điểm số.
 
 ---
 
 ## Bước 7. Chấm điểm và ghi số vào README
 
-**Ở đâu:** terminal Codespace. Tab Colab vẫn mở (7.2 cần mô hình).
+**Ở đâu:** terminal Codespace. Tab Colab vẫn mở, vì 7.2 cần mô hình.
 
 ### 7.1. Chấm phần trích rule (vài giây, không cần mô hình)
 
 ```bash
+cd /workspaces/legacylens
 make eval > /dev/null && cat reports/eval.md
 ```
 
-**Đúng khi:** in một bảng có các dòng `Precision`, `Recall`, `F1`.
+**Đúng khi:** in một bảng có các dòng `Precision`, `Recall`, `F1`. Số thấp vẫn là số thật, cứ để nguyên.
 
 ### 7.2. Chấm phần hỏi đáp onboarding (30-60 phút)
 
 ```bash
-make eval-qa > /dev/null && cat reports/eval_qa.md | head -12
+cd /workspaces/legacylens
+bash -e <<'EOF'
+set -a; . ./.env; set +a
+curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
+make eval-qa > /dev/null
+python3 - <<'PY'
+import json
+d = json.load(open("reports/eval_qa.json"))
+loi = [r["id"] for r in d["rows"] if r.get("error")]
+s = d["summary"]
+print(f"Agent đúng {s['correct']}/{s['questions']} câu, mô hình {s.get('model')}")
+if loi:
+    print(f"DỪNG: {len(loi)} câu lỗi khi gọi mô hình ({', '.join(loi)}), số này chưa dùng được. Làm 6.2 rồi dán lại khối 7.2.")
+else:
+    print("XONG: cả 20 câu đã hỏi được mô hình")
+PY
+EOF
 ```
 
-Trong lúc chờ, thỉnh thoảng bấm vào tab Colab. Nếu Colab ngắt giữa chừng, làm 5.8 rồi dán lại khối này.
+Lệnh chạy 30-60 phút mà không in gì cho tới khi xong. Trong lúc chờ, thỉnh thoảng bấm vào tab Colab.
 
-**Đúng khi:** in bảng có dòng `Correct (keywords + citation)`.
+**Đúng khi:** in `Agent đúng N/20 câu` và `XONG: cả 20 câu đã hỏi được mô hình`. Nếu có câu lỗi vì Colab ngắt, câu đó
+bị tính sai, nên khối in `DỪNG` để bạn chạy lại thay vì giữ một con số thấp giả.
 
 ### 7.3. Ghi số vào README
 
 ```bash
+cd /workspaces/legacylens
+bash -e <<'EOF'
 make readme
-make readme NOTE="Bản đầu: Qwen2.5 7B, prompt gốc"
-sed -n '/Trích business rule/,/## Cách chấm/p' README.md
+if [ -f out/lan1/readme.xong ]; then echo "Lần 1 đã có trong bảng Các lần thử, không thêm lại"
+else make readme NOTE="Bản đầu, prompt gốc" && touch out/lan1/readme.xong; fi
+echo "--- Các dòng còn [X] (chỉ nên còn dòng Người trả lời):"
+grep -n '\[X\]' README.md || echo "không còn"
+EOF
 ```
 
-Lệnh đầu chép số vào bảng Kết quả. Lệnh thứ hai thêm dòng 1 vào bảng "Các lần thử". Không cần sửa README bằng tay.
+Lệnh đầu chép số vào bảng Kết quả. Lệnh thứ hai thêm dòng 1 vào bảng "Các lần thử". Dán lại khối cũng không tạo dòng
+trùng.
 
-**Đúng khi:** bảng không còn `[X]` ở các dòng Precision, Trích dẫn, Token, Agent trả lời đúng. Còn `[X]` ở dòng
-"Người trả lời 20 câu" là đúng, dòng đó điền ở bước 10. Số thấp cũng giữ nguyên: một F1 thấp có giải thích vẫn tốt
-hơn một con số đẹp không chứng minh được.
+**Đúng khi:** in `updated: ...` (dòng `2 [X] left in README` là bình thường), và phần `Các dòng còn [X]` chỉ còn
+đúng một dòng bắt đầu bằng `| Người trả lời 20 câu`. Dòng đó điền ở bước 10.
 
-### 7.4. Lưu và đẩy
+### 7.4. Cất kết quả lần 1 và đẩy
 
 ```bash
+cd /workspaces/legacylens
 cp reports/eval.md reports/eval_lan1.md && cp reports/eval_qa.md reports/eval_qa_lan1.md
-git add reports README.md && git commit -qm "Kết quả lần 1: trích rule và hỏi đáp onboarding" && git push
+rm -rf out/rules_lan1 && cp -r out/rules out/rules_lan1 && cp reports/runs.jsonl out/runs_lan1.jsonl
+git add -A
+if git diff --cached --name-only --diff-filter=AM | grep -E '^(\.env|data/)'; then echo "DỪNG: có file không được đẩy. Gửi log cho mình."; else git commit -qm "Kết quả lần 1: trích rule và hỏi đáp onboarding" && git push; fi
 ```
+
+Hai dòng đầu cất bản sao của lần 1 (điểm, rule agent trích, token), để bước 8.4 so sánh và chọn lại được.
+
+**Đúng khi:** dòng cuối có `main -> main`.
 
 ---
 
 ## Bước 8. Cải thiện 1-2 lần
 
-Đây là phần để kể khi phỏng vấn: thấy lỗi gì, đổi gì, số thay đổi ra sao. Bạn làm 2 lần thử: lần 2 đổi prompt, lần 3
-đổi sang mô hình lớn hơn. Mỗi lần đều ghi vào bảng "Các lần thử", kể cả khi số giảm.
+Đây là phần để kể khi phỏng vấn: thấy lỗi gì, đổi gì, số thay đổi ra sao. Lần 2 đổi prompt, lần 3 đổi sang mô hình
+lớn hơn. Mỗi lần được ghi tự động vào bảng "Các lần thử" của README, kể cả khi số giảm.
 
-### 8.1. Xem agent sai ở đâu
+### 8.1. Xem agent sai ở đâu và ghi kiểu lỗi
 
 ```bash
+cd /workspaces/legacylens
 python3 - <<'PY'
 import json
 ev = json.load(open("reports/eval.json"))
@@ -349,164 +484,316 @@ for i in ev.get("missed", []):
     print(f"  {i} [{g.get('kind')}] {g.get('summary')}")
 print(f"\nRule agent thêm mà nhãn tay không có: {len(ev.get('extra', []))}")
 PY
+read -rp ">>> Kiểu lỗi lặp lại bạn thấy, một câu (ví dụ: gộp nhiều nhánh WHEN thành một rule): " G && echo "- Lần 1, kiểu lỗi chính: $G" >> reports/ghi_chu_lan_thu.md && echo "đã ghi vào reports/ghi_chu_lan_thu.md"
 ```
 
 Đọc danh sách bỏ sót và tìm một kiểu lặp lại. Với mô hình nhỏ, kiểu hay gặp nhất là gộp nhiều nhánh `WHEN` của một
-`EVALUATE` thành một rule, nên bỏ sót các nhãn validation. Ghi kiểu lỗi bạn thấy vào file nháp.
+`EVALUATE` thành một rule, nên bỏ sót các nhãn validation. Lần 2 nhắm đúng kiểu đó.
+
+**Đúng khi:** in danh sách, rồi `đã ghi vào reports/ghi_chu_lan_thu.md` sau khi bạn gõ câu trả lời.
 
 ### 8.2. Lần 2: thêm một luật vào prompt (30-60 phút)
 
 ```bash
+cd /workspaces/legacylens
+bash -e <<'EOF'
+L=2
+test -d out/rules_lan1 || { echo "DỪNG: chưa cất kết quả lần 1. Dán khối 7.4 trước."; exit 1; }
+set -a; . ./.env; set +a
+curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
 export LLM_EXTRA_RULES="Each IF or WHEN branch that sets its own error message, code or target program is a separate rule."
-make extract PROGS="COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C"
+if [ ! -d out/lan$L ]; then mkdir -p out/lan$L; rm -rf out/rules; rm -f reports/runs.jsonl; fi
+for p in COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C; do
+  if [ -f out/lan$L/$p.xong ]; then echo "$p: đã xong ở lần trước, bỏ qua"; continue; fi
+  make extract PROGS=$p
+  if tail -1 reports/runs.jsonl | grep -qE '"tool_calls": 0[,}]'; then
+    echo "DỪNG: $p có 0 tool calls. Dán lại khối này."; exit 1
+  fi
+  touch out/lan$L/$p.xong
+done
 make eval > /dev/null && grep -E "Precision|Recall|F1" reports/eval.md
-make readme NOTE="Lần 2: mỗi nhánh IF/WHEN có thông báo riêng là một rule"
-cp reports/eval.md reports/eval_lan2.md
-unset LLM_EXTRA_RULES
+if [ ! -f out/lan$L/readme.xong ]; then make readme NOTE="Mỗi nhánh IF/WHEN có thông báo riêng là một rule" && touch out/lan$L/readme.xong; fi
+cp reports/eval.md reports/eval_lan$L.md
+rm -rf out/rules_lan$L && cp -r out/rules out/rules_lan$L && cp reports/runs.jsonl out/runs_lan$L.jsonl
+echo "XONG LẦN $L"
+EOF
 ```
 
 `LLM_EXTRA_RULES` thêm một câu vào cuối phần luật của prompt (xem `extract_rules` trong `src/legacylens/agent.py`),
-nên không phải sửa code. Muốn thử câu khác, đổi nội dung trong dấu nháy.
+nên không phải sửa code. Biến này chỉ sống trong khối trên, không ảnh hưởng các lệnh sau.
 
-**Đúng khi:** in 3 dòng Precision, Recall, F1 mới, và `updated: Lần thử 2`.
+**Đúng khi:** in 3 dòng Precision, Recall, F1 mới, `updated: Lần thử 2`, rồi `XONG LẦN 2`.
+
+**Nếu lỗi:** giống bảng ở 6.3. Sau khi sửa, dán lại đúng khối 8.2. Các chương trình đã xong được bỏ qua.
 
 ### 8.3. Lần 3: mô hình open-weight lớn hơn, Qwen2.5 14B (khoảng 1 giờ)
 
-1. Tab Colab: trong ô 1 của notebook, thêm `#` vào đầu hai dòng `MODEL = "qwen2.5:7b-instruct"` và `CONTEXT = 32768`,
-   bỏ `#` ở hai dòng `qwen2.5:14b-instruct` và `CONTEXT = 16384`. Chọn **Runtime > Run all**.
-2. Ô 7 in 4 dòng `LLM_` mới. Trong Codespace, `code .env`, thay 4 dòng cũ bằng 4 dòng mới, Ctrl+S.
-3. Dán:
+**Ở đâu:** tab Colab, rồi tab Codespace.
+
+**Làm:**
+
+1. Tab Colab: bấm vào ô 1 (ô có dòng `MODEL = "qwen2.5:7b-instruct"`). Chọn menu **Insert > Code cell**. Một ô trống
+   hiện ngay dưới ô 1. Dán 2 dòng này vào ô trống:
+
+```python
+MODEL = "qwen2.5:14b-instruct"
+CONTEXT = 16384
+```
+
+2. Menu **Runtime > Disconnect and delete runtime**, bấm **Yes**. Việc này tắt Ollama đang chạy mô hình 7B.
+3. Menu **Runtime > Run all**. Chờ 10-15 phút, vì mô hình 14B nặng 9 GB.
+4. Làm 6.2 (bước 2-4) để chép 4 dòng `LLM_` mới vào `.env`. Dòng cuối phải là `"id":"qwen2.5:14b-instruct"`.
+5. Tab Codespace, dán:
 
 ```bash
-make extract PROGS="COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C" ARGS="--max-steps 10"
+cd /workspaces/legacylens
+bash -e <<'EOF'
+L=3
+test -f reports/eval_lan1.md || { echo "DỪNG: chưa có kết quả lần 1. Dán khối 7.4 trước."; exit 1; }
+set -a; . ./.env; set +a
+case "$LLM_MODEL" in *14b*) ;; *) echo "DỪNG: .env vẫn là $LLM_MODEL. Làm lại bước 1-4 của 8.3."; exit 1;; esac
+curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
+f1() { awk -F'|' '$2 ~ /^ *F1 *$/ {gsub(/[ %]/, "", $3); print $3}' reports/eval_lan$1.md; }
+NOTE="Qwen2.5 14B, tối đa 10 bước, prompt gốc"
+if [ -f reports/eval_lan2.md ] && awk -v a="$(f1 2)" -v b="$(f1 1)" 'BEGIN { exit !(a > b) }'; then
+  export LLM_EXTRA_RULES="Each IF or WHEN branch that sets its own error message, code or target program is a separate rule."
+  NOTE="Qwen2.5 14B, tối đa 10 bước, giữ luật của lần 2"
+fi
+echo "Cấu hình: $NOTE"
+if [ ! -d out/lan$L ]; then mkdir -p out/lan$L; rm -rf out/rules; rm -f reports/runs.jsonl; fi
+for p in COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C; do
+  if [ -f out/lan$L/$p.xong ]; then echo "$p: đã xong ở lần trước, bỏ qua"; continue; fi
+  make extract PROGS=$p ARGS="--max-steps 10"
+  if tail -1 reports/runs.jsonl | grep -qE '"tool_calls": 0[,}]'; then
+    echo "DỪNG: $p có 0 tool calls. Dán lại khối này."; exit 1
+  fi
+  touch out/lan$L/$p.xong
+done
 make eval > /dev/null && grep -E "Precision|Recall|F1" reports/eval.md
-make readme NOTE="Lần 3: Qwen2.5 14B, tối đa 10 bước"
-cp reports/eval.md reports/eval_lan3.md
+if [ ! -f out/lan$L/readme.xong ]; then make readme NOTE="$NOTE" && touch out/lan$L/readme.xong; fi
+cp reports/eval.md reports/eval_lan$L.md
+rm -rf out/rules_lan$L && cp -r out/rules out/rules_lan$L && cp reports/runs.jsonl out/runs_lan$L.jsonl
+echo "XONG LẦN $L"
+EOF
 ```
 
-Nếu muốn dùng prompt của lần 2 cho lần này, dán dòng `export LLM_EXTRA_RULES=...` của 8.2 trước khối trên, và ghi
-rõ trong NOTE.
+Khối tự quyết định có giữ luật prompt của lần 2 hay không: nếu lần 2 có F1 cao hơn lần 1 thì giữ, không thì dùng
+prompt gốc. Dòng `Cấu hình:` cho biết nó đã chọn gì, và README ghi đúng như vậy.
 
-**Đúng khi:** `updated: Lần thử 3`.
+**Đúng khi:** in `Cấu hình: ...`, 3 dòng Precision, Recall, F1, `updated: Lần thử 3`, rồi `XONG LẦN 3`.
 
-### 8.4. Chọn kết quả cho bảng chính
+**Nếu lỗi:** Colab hết bộ nhớ khi tải 14B (ô 5 hoặc ô 6 báo lỗi `out of memory`) thì bỏ qua 8.3, sang 8.4. Bạn vẫn
+có 2 lần thử để kể. Các lỗi khác xử lý như bảng ở 6.3.
+
+### 8.4. Chọn lần tốt nhất cho bảng chính
+
+Khối này tự so F1 của các lần đã chạy, rồi đưa lần cao nhất vào bảng Kết quả và vào `out/rules` (bước 9 dùng thư mục
+này). Số hỏi đáp onboarding vẫn là của lần 1 và ghi tên mô hình của lần đó, nên không lẫn.
 
 ```bash
-sed -n '/### Các lần thử/,/## Cách chấm/p' README.md
+cd /workspaces/legacylens
+bash -e <<'EOF'
+f1() { awk -F'|' '$2 ~ /^ *F1 *$/ {gsub(/[ %]/, "", $3); print $3}' reports/eval_lan$1.md; }
+best=1
+for k in 1 2 3; do
+  if [ -f reports/eval_lan$k.md ]; then
+    echo "Lần $k: F1 = $(f1 $k)%"
+    if awk -v a="$(f1 $k)" -v b="$(f1 $best)" 'BEGIN { exit !(a > b) }'; then best=$k; fi
+  fi
+done
+echo "Chọn lần $best cho bảng chính"
+rm -rf out/rules && cp -r out/rules_lan$best out/rules && cp out/runs_lan$best.jsonl reports/runs.jsonl
+make eval > /dev/null && make readme
+echo "lần $best" > reports/lan_chon.txt
+sed -n '/Trích business rule/,/## Cách chấm/p' README.md
+EOF
 ```
 
-- Nếu **lần 3** có F1 cao nhất và bạn muốn bảng chính dùng nó: dán `make readme`. Số hỏi đáp onboarding vẫn là của
-  lần 1 và ghi rõ tên mô hình của lần đó, nên không lẫn.
-- Nếu không: không làm gì, bảng chính giữ số lần 1.
+**Đúng khi:** in F1 của từng lần, `Chọn lần N cho bảng chính`, rồi bảng Kết quả và bảng Các lần thử. F1 ở bảng Kết
+quả bằng F1 của lần được chọn.
 
-### 8.5. Lưu và đẩy
+### 8.5. Ghi lại bài học và đẩy
 
 ```bash
+cd /workspaces/legacylens
+cat > /tmp/luu8.sh <<'EOF'
+echo ""
+for k in 2 3; do
+  if [ -f reports/eval_lan$k.md ]; then
+    read -rp ">>> Lần $k: số thay đổi ra sao và vì sao bạn nghĩ vậy (1-2 câu): " A
+    echo "- Lần $k: $A" >> reports/ghi_chu_lan_thu.md
+  fi
+done
 git add -A
-git status --short | grep -E '(^|/)(\.env|data/)' && echo "DỪNG: có file không được đẩy" || echo "sạch"
-git commit -qm "Cải thiện: thử prompt và mô hình 14B" && git push
+if git diff --cached --name-only --diff-filter=AM | grep -E '^(\.env|data/)'; then echo "DỪNG: có file không được đẩy. Gửi log cho mình."; else git commit -qm "Cải thiện: thử prompt và mô hình 14B" && git push; fi
+EOF
+bash /tmp/luu8.sh
 ```
 
-**Đúng khi:** dòng thứ hai in `sạch`, `git push` kết thúc bằng `main -> main`.
-
-**Ghi lại:** vào file nháp, mỗi lần thử 2 câu: đổi gì, số thay đổi ra sao và vì sao bạn nghĩ vậy.
+**Đúng khi:** sau khi bạn trả lời từng câu hỏi, dòng cuối có `main -> main`. Ôn lại `reports/ghi_chu_lan_thu.md`
+trước phỏng vấn.
 
 ---
 
-## Bước 9. Tài liệu thiết kế tiếng Việt và tiếng Nhật
+## Bước 9. Tài liệu thiết kế tiếng Việt và tiếng Nhật (5 phút, không cần Colab)
 
-Tài liệu dùng các rule agent trích ở lần chạy gần nhất (thư mục `out/rules`). Không cần mô hình.
+Tài liệu dùng các rule của lần được chọn ở 8.4 (thư mục `out/rules`).
 
 ```bash
-make doc PROGS="COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C"
-ls docs/generated
+cd /workspaces/legacylens
+make doc PROGS="COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C" > /dev/null
+echo "Số file: $(ls docs/generated/*.md | wc -l)"
+git add -A
+if git diff --cached --name-only --diff-filter=AM | grep -E '^(\.env|data/)'; then echo "DỪNG: có file không được đẩy. Gửi log cho mình."; else git commit -qm "Tài liệu thiết kế vi/ja cho 5 chương trình" && git push; fi
 code docs/generated/CBACT04C.vi.md
 ```
 
-Trong tab vừa mở, bấm Ctrl+Shift+V để xem bản hiển thị, có sơ đồ Mermaid.
+Tab `CBACT04C.vi.md` mở ra. Bấm Ctrl+Shift+V để xem bản hiển thị, có sơ đồ Mermaid.
 
-**Đúng khi:** `ls` in 10 file, mỗi chương trình một `.vi.md` và một `.ja.md`. Bảng rule có cột trích dẫn.
-
-**Đẩy:**
-
-```bash
-git add docs/generated && git commit -qm "Tài liệu thiết kế vi/ja cho 5 chương trình" && git push
-```
+**Đúng khi:** in `Số file: 10` (mỗi chương trình một `.vi.md` và một `.ja.md`), có `main -> main`, và bảng rule
+trong tài liệu có cột trích dẫn.
 
 ---
 
-## Bước 10. Bài kiểm tra bấm giờ với người thật
+## Bước 10. Bài kiểm tra bấm giờ với người thật (1-2 giờ)
 
 Bạn đã thuộc code sau bước 4, nên bạn tự làm bài thì kết quả bị lệch. Nhờ 1-2 người biết lập trình nhưng chưa đọc
-CardDemo. Bạn điều khiển Codespace và chia sẻ màn hình (Google Meet, Zalo, ...); người làm bài đọc và nói câu trả lời.
+CardDemo. Bạn điều khiển Codespace và chia sẻ màn hình (Google Meet, Zalo, ...). Người làm bài đọc và nói câu trả lời,
+bạn ghi lại.
+
+Mỗi người làm 2 phần, 10 câu mỗi phần:
+
+| Người | Phần 1: chỉ đọc code | Phần 2: dùng LegacyLens |
+| --- | --- | --- |
+| Người 1 | Q01-Q10 | Q11-Q20 |
+| Người 2 (nếu có) | Q11-Q20 | Q01-Q10 |
 
 ### 10.1. Mở giao diện
 
+**Ở đâu:** terminal Codespace. Làm 6.1 trước. Nếu 6.1 in `CHƯA NỐI ĐƯỢC` thì làm 6.2.
+
 ```bash
+cd /workspaces/legacylens
 make ui
 ```
 
-Codespaces hiện thông báo cổng 8501, bấm **Open in Browser**. Để tab Colab chạy.
+Codespaces hiện thông báo cổng 8501, bấm **Open in Browser**. Terminal này giữ giao diện chạy, đừng đóng.
 
-### 10.2. Phần A: chỉ đọc code (câu Q01-Q10 trong `onboarding/BAI_KIEM_TRA.md`)
+**Đúng khi:** tab mới mở giao diện LegacyLens. Hỏi thử một câu ở mục Ask, phải ra câu trả lời có trích dẫn.
 
-Mở terminal thứ hai (dấu `+` ở khung terminal). Trước câu đầu tiên:
+Mở terminal thứ hai bằng dấu `+` ở khung terminal. Các khối 10.2-10.4 dán vào terminal thứ hai này.
 
-```bash
-T0=$(date +%s)
-```
+### 10.2. Bấm giờ bắt đầu một phần
 
-Người làm bài dùng Explorer và Ctrl+Shift+F (tìm trong toàn bộ file) để trả lời Q01-Q10. Bạn ghi câu trả lời vào
-phiếu. Xong câu cuối:
+Mở `onboarding/BAI_KIEM_TRA.md` cho người làm bài xem câu hỏi. Ngay trước câu đầu tiên của phần, dán:
 
 ```bash
-echo "Phần A: $(( ($(date +%s) - T0) / 60 )) phút"
+cd /workspaces/legacylens && date +%s > /tmp/bat_dau && echo "Bắt đầu lúc $(date +%H:%M:%S)"
 ```
 
-### 10.3. Phần B: dùng LegacyLens (câu Q11-Q20)
+- Phần chỉ đọc code: người làm bài dùng Explorer và Ctrl+Shift+F (tìm trong toàn bộ file).
+- Phần dùng LegacyLens: người làm bài gõ câu hỏi vào mục Ask của giao diện, đọc câu trả lời và trích dẫn.
+
+Bạn ghi câu trả lời của họ ra giấy hoặc file nháp.
+
+### 10.3. Bấm giờ kết thúc, chấm và lưu
+
+Ngay sau câu cuối của phần, dán:
 
 ```bash
-T0=$(date +%s)
+cd /workspaces/legacylens
+cat > /tmp/xong_phan.sh <<'EOF'
+giay=$(( $(date +%s) - $(cat /tmp/bat_dau) ))
+echo ""
+echo "Thời gian phần này: $((giay / 60)) phút $((giay % 60)) giây"
+read -rp ">>> Người số mấy (1 hoặc 2): " N
+read -rp ">>> Cách làm (1 = chỉ đọc code, 2 = dùng LegacyLens): " C
+case "$N$C" in 11|22) Q="Q01-Q10";; 12|21) Q="Q11-Q20";; *) echo "DỪNG: chỉ gõ 1 hoặc 2. Dán lại khối này (giờ vẫn giữ)."; exit 1;; esac
+echo ""
+echo "Đáp án $Q. Một câu đúng khi câu trả lời có đủ mọi nhóm từ khóa (mỗi nhóm chỉ cần một từ):"
+python3 - "$Q" <<'PY'
+import json, sys
+a, b = (1, 10) if sys.argv[1] == "Q01-Q10" else (11, 20)
+for line in open("onboarding/questions.jsonl"):
+    q = json.loads(line)
+    if a <= int(q["id"][1:]) <= b:
+        kw = "; ".join(" hoặc ".join(g) for g in q["keywords"])
+        where = ", ".join(f"{e['program']} dòng {e['start_line']}-{e['end_line']}" for e in q["expected"]) or "-"
+        print(f"  {q['id']}: phải có [{kw}]  (code: {where})")
+PY
+read -rp ">>> Số câu đúng trên 10: " D
+case "$D" in [0-9]|10) ;; *) echo "DỪNG: gõ một số từ 0 đến 10. Dán lại khối này (giờ vẫn giữ)."; exit 1;; esac
+test -f onboarding/ket_qua_bam_gio.csv || echo "nguoi,cach,cau,giay,dung" > onboarding/ket_qua_bam_gio.csv
+echo "$N,$C,$Q,$giay,$D" >> onboarding/ket_qua_bam_gio.csv
+echo "đã lưu: người $N, cách $C, $Q, $giay giây, đúng $D/10"
+EOF
+bash /tmp/xong_phan.sh
 ```
 
-Người làm bài gõ câu hỏi vào tab giao diện (mục Ask), đọc câu trả lời và trích dẫn, rồi nói đáp án của họ. Xong:
+Thời gian được tính ngay khi bạn dán, nên trả lời câu hỏi chậm cũng không tính thêm giờ.
+
+**Đúng khi:** in `đã lưu: ...`.
+
+Mỗi phần chỉ dán 10.3 một lần. Nếu lỡ dán hai lần cho cùng một phần, gửi log cho mình trước khi làm 10.4.
+
+Lặp lại 10.2 và 10.3 cho mỗi phần: người 1 phần 1, người 1 phần 2, rồi người 2 nếu có. Mỗi người làm 2 phần là đủ.
+
+### 10.4. Ghi vào README và đẩy
+
+Làm sau khi mọi người đã xong cả hai phần.
 
 ```bash
-echo "Phần B: $(( ($(date +%s) - T0) / 60 )) phút"
+cd /workspaces/legacylens
+python3 - <<'PY'
+import csv, subprocess
+rows = list(csv.DictReader(open("onboarding/ket_qua_bam_gio.csv")))
+def part(c):
+    rs = [r for r in rows if r["cach"] == c]
+    phut = sum(int(r["giay"]) for r in rs) / 60 / (10 * len(rs))
+    return round(phut, 1), f"{sum(int(r['dung']) for r in rs)}/{10 * len(rs)}", len(rs)
+read_min, read_ok, n1 = part("1")
+tool_min, tool_ok, n2 = part("2")
+people = len({r["nguoi"] for r in rows})
+print(f"Chỉ đọc code: {read_min} phút mỗi câu, đúng {read_ok}")
+print(f"Dùng LegacyLens: {tool_min} phút mỗi câu, đúng {tool_ok}")
+if n1 != n2:
+    raise SystemExit("DỪNG: số phần đọc code và số phần dùng LegacyLens khác nhau. Làm nốt phần còn thiếu ở 10.2-10.3.")
+subprocess.run(["make", "readme", f"READ_MIN={read_min}", f"TOOL_MIN={tool_min}", f"READ_OK={read_ok}",
+                f"TOOL_OK={tool_ok}", f"PEOPLE={people} người, 10 câu mỗi cách"], check=True)
+PY
+git add -A
+if git diff --cached --name-only --diff-filter=AM | grep -E '^(\.env|data/)'; then echo "DỪNG: có file không được đẩy. Gửi log cho mình."; else git commit -qm "Kết quả bài kiểm tra onboarding bấm giờ" && git push; fi
 ```
 
-### 10.4. Chấm và ghi vào README
+Khối tự tính phút **mỗi câu** (tổng thời gian chia số câu) và cộng số câu đúng của mọi người. Mẫu nhỏ thì README ghi rõ
+số người, nên không cần giải thích thêm.
 
-Chấm từng câu bằng đáp án trong `onboarding/questions.jsonl` (từ khóa phải có) và `GIAI_THICH_NHAN.md` trong thư mục dự án. Rồi dán,
-thay các số bằng số của bạn: phút **mỗi câu** = tổng phút chia 10.
+**Đúng khi:** in hai dòng `Chỉ đọc code` và `Dùng LegacyLens`, `updated: Bài kiểm tra với người thật`,
+`no [X] left in README`, rồi `main -> main`.
 
-```bash
-make readme READ_MIN=4.5 TOOL_MIN=1.5 READ_OK=6/10 TOOL_OK=9/10 PEOPLE="1 người, 10 câu mỗi cách"
-git add README.md onboarding && git commit -qm "Kết quả bài kiểm tra onboarding bấm giờ" && git push
-```
-
-Có người thứ hai: cho họ làm ngược lại (Q01-Q10 bằng LegacyLens, Q11-Q20 đọc code), lấy trung bình của hai người và
-ghi `PEOPLE="2 người, 10 câu mỗi cách"`. Mẫu nhỏ thì nói là mẫu nhỏ.
-
-**Đúng khi:** `make readme` in `updated: Bài kiểm tra với người thật` và `0 [X] left in README`.
+Bấm Ctrl+C ở terminal đầu tiên để tắt giao diện.
 
 ---
 
-## Bước 11. Kiểm tra lại lỗi CBACT04C (không cần Colab)
+## Bước 11. Kiểm tra lại lỗi CBACT04C (15 phút, không cần Colab)
 
 README có mục "Một lỗi gặp khi gán nhãn". Lỗi đã được báo ở issue #64 của CardDemo. Bạn tự chạy để kể được.
 
 ```bash
-sudo apt-get update -qq && sudo apt-get install -y -qq gnucobol > /dev/null
+cd /workspaces/legacylens
+command -v cobc > /dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq gnucobol > /dev/null; }
 cobc -x -free scripts/repro_cbact04c.cbl -o /tmp/repro && /tmp/repro
-code data/carddemo/app/cbl/CBACT04C.cbl scripts/repro_cbact04c.cbl
+echo "----- CBACT04C.cbl, dòng 188-222 -----"
+awk 'NR >= 188 && NR <= 222 { printf "%4d  %s\n", NR, $0 }' data/carddemo/app/cbl/CBACT04C.cbl
+code scripts/repro_cbact04c.cbl
 ```
 
-Trong tab `CBACT04C.cbl`, bấm Ctrl+G, gõ `188`, Enter. Đọc dòng 188-222, so với `repro_cbact04c.cbl`.
+Đọc dòng 188-222 in ra trong terminal, so với file `repro_cbact04c.cbl` vừa mở.
 
 **Đúng khi:** chương trình in `balance updated ... for account 101` và không có dòng nào cho account 202. Bạn tự
 giải thích được bằng lời: vòng `PERFORM UNTIL END-OF-FILE = 'Y'` kiểm tra trước mỗi lượt, nên mỗi lượt bắt đầu với
-`END-OF-FILE = 'N'`, và nhánh `ELSE` ở dòng 219 không bao giờ chạy.
+`END-OF-FILE = 'N'`, và nhánh `ELSE` ở dòng 219 không bao giờ chạy. Vì vậy tài khoản cuối cùng không bao giờ được cập
+nhật.
 
 Khi kể, nói đúng: "Tôi gặp lỗi này khi duyệt nhãn, viết bản tái hiện bằng GnuCOBOL, rồi thấy nó đã được báo ở
 issue #64." Đừng nói là bạn phát hiện đầu tiên.
@@ -521,57 +808,120 @@ issue #64." Đừng nói là bạn phát hiện đầu tiên.
 
 ```bash
 cd /workspaces/legacylens
-grep -c "\[X\]" README.md
+echo "Số dòng còn [X]: $(grep -c '\[X\]' README.md)"
 make test lint check-gold 2>&1 | grep -E "passed|failed|All checks|gold rules"
 ```
 
-**Đúng khi:** dòng đầu là `0`, sau đó có `34 passed`, `All checks passed!`, `N/N gold rules pass`.
+**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `34 passed` (hoặc `33 passed, 1 skipped`),
+`All checks passed!`, `N/N gold rules pass`.
+
+**Nếu lỗi:** còn `[X]` thì xem bước nào chưa làm: dòng Precision là bước 7, dòng Người trả lời là bước 10. Lint báo
+lỗi thì dán `cd /workspaces/legacylens && ruff format . && make lint`.
 
 ### 12.2. Quay video demo 2 phút
 
-Quay màn hình (Xbox Game Bar trên Windows: Win+Alt+R; macOS: Cmd+Shift+5) theo thứ tự:
+**Ở đâu:** máy bạn, quay màn hình tab Codespace (Windows: Win+Alt+R của Xbox Game Bar; macOS: Cmd+Shift+5).
 
-1. Terminal: `make stats` (số chương trình, dòng code).
-2. Mở `reports/graph.mmd` (đồ thị phụ thuộc).
-3. `make ui`, hỏi một câu, mở một trích dẫn.
-4. Mở `docs/generated/CBACT04C.ja.md` (tài liệu tiếng Nhật).
-5. Mở `README.md`, kéo tới bảng Kết quả và bảng Các lần thử.
+Trước khi quay, làm 6.1 (Colab phải chạy cho phần hỏi đáp). Rồi quay theo thứ tự:
 
-Tải lên YouTube, chế độ **Unlisted**, rồi dán (thay link):
+1. Terminal: dán `cd /workspaces/legacylens && make stats` (số chương trình, dòng code).
+2. Dán `code reports/graph.mmd` (đồ thị phụ thuộc).
+3. Dán `make ui`, bấm **Open in Browser**, hỏi một câu ở mục Ask, mở một trích dẫn.
+4. Terminal thứ hai: dán `cd /workspaces/legacylens && code docs/generated/CBACT04C.ja.md`, bấm Ctrl+Shift+V.
+5. Dán `code README.md`, bấm Ctrl+Shift+V, kéo tới bảng Kết quả và bảng Các lần thử.
 
-```bash
-make readme VIDEO=https://youtu.be/LINK_CUA_BAN
-git add README.md && git commit -qm "Thêm video demo" && git push
-```
-
-### 12.3. Xóa file riêng, kiểm tra không lộ khóa
+Tải video lên YouTube, chế độ **Unlisted**. Bấm **Share > Copy** để chép link. Rồi dán khối này và dán link khi được
+hỏi:
 
 ```bash
-git rm -q HUONG_DAN.md
-git commit -qm "Bỏ ghi chú riêng" && git push
-git log -p | grep -nE "gsk_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}|API_KEY=[A-Za-z0-9_-]{16,}" && echo "DỪNG: có khóa trong lịch sử" || echo "sạch"
-git ls-files | grep -E "^\.env$|^data/" && echo "DỪNG: có file không được đẩy" || echo "sạch"
+cd /workspaces/legacylens
+read -rp ">>> Dán link YouTube (Ctrl+V) rồi Enter: " V && case "$V" in https://*) make readme VIDEO="$V" && git add README.md && git commit -qm "Thêm video demo" && git push;; *) echo "DỪNG: link phải bắt đầu bằng https://. Dán lại khối này.";; esac
 ```
 
-**Đúng khi:** hai dòng cuối đều in `sạch`. Bản hướng dẫn này vẫn còn trong thư mục dự án, bạn không mất nó.
+**Đúng khi:** in `updated: Video` rồi `main -> main`.
+
+### 12.3. Kiểm tra không lộ khóa, xóa file riêng
+
+```bash
+cd /workspaces/legacylens
+bash <<'EOF'
+if git log -p | grep -qE "gsk_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}|API_KEY=[A-Za-z0-9_-]{16,}"; then
+  echo "DỪNG: có khóa API trong lịch sử git. KHÔNG để repo Public. Gửi log cho mình."; exit 1
+fi
+if git ls-files | grep -qE '^\.env$|^data/'; then
+  echo "DỪNG: có .env hoặc data/ trong repo. KHÔNG để repo Public. Gửi log cho mình."; exit 1
+fi
+echo "sạch: không có khóa, không có dữ liệu"
+git rm -q --ignore-unmatch HUONG_DAN.md
+git commit -qm "Bỏ ghi chú riêng" && git push || echo "HUONG_DAN.md đã được xóa từ trước"
+EOF
+```
+
+Khối kiểm tra khóa và dữ liệu **trước**, chỉ xóa `HUONG_DAN.md` khi sạch. Bản hướng dẫn này vẫn còn trong thư mục dự
+án, bạn không mất nó.
+
+**Đúng khi:** in `sạch: không có khóa, không có dữ liệu` rồi `main -> main`.
 
 ### 12.4. Để repo Public
 
-Trên github.com/tak2k5/legacylens: **Settings > General**, kéo xuống **Danger Zone > Change visibility > Public**.
-Rồi mở tab **Actions**: lần chạy `ci` mới nhất phải có dấu xanh.
+**Ở đâu:** github.com/tak2k5/legacylens. Chỉ làm khi 12.3 in `sạch`.
+
+1. Bấm **Settings** (thanh trên cùng của repo) > **General**.
+2. Kéo xuống cuối, mục **Danger Zone** > **Change visibility** > **Change to public**, làm theo các bước xác nhận.
+3. Quay lại terminal Codespace, dán:
+
+```bash
+cd /workspaces/legacylens && gh run list --limit 1
+```
+
+**Đúng khi:** repo hiện nhãn **Public** cạnh tên. Dòng `gh run list` có `completed` và `success`. Nếu `gh` báo lỗi
+quyền, mở tab **Actions** của repo: lần chạy `ci` mới nhất phải có dấu xanh.
 
 ### 12.5. Thêm vào CV
 
-Mở tài liệu "Dự án giải quyết vấn đề thật của FPT Software", lấy mẫu câu và thay bằng số trong README:
+Khối này lấy số từ các file kết quả (không gõ tay số nào) và in câu cho CV bằng tiếng Việt và tiếng Anh.
 
 ```bash
-sed -n '/Trích business rule/,/## Cách chấm/p' README.md
+cd /workspaces/legacylens
+python3 - <<'PY' | tee out/cv.txt
+import csv, json, os
+ev = json.load(open("reports/eval.json"))
+qa = json.load(open("reports/eval_qa.json"))["summary"]
+runs = [json.loads(l) for l in open("reports/runs.jsonl")]
+model = runs[-1]["model"]
+qa_vi = f" (dùng {qa['model']})" if qa.get("model") != model else ""
+qa_en = f" (with {qa['model']})" if qa.get("model") != model else ""
+n = sum(1 for l in open("gold/rules.jsonl") if l.strip())
+pct = lambda x: f"{x:.0%}"
+human_vi = human_en = ""
+if os.path.exists("onboarding/ket_qua_bam_gio.csv"):
+    rows = list(csv.DictReader(open("onboarding/ket_qua_bam_gio.csv")))
+    m = {c: sum(int(r["giay"]) for r in rows if r["cach"] == c) / 60 / (10 * sum(r["cach"] == c for r in rows)) for c in "12"}
+    people = len({r["nguoi"] for r in rows})
+    human_vi = f" Bài kiểm tra với {people} người: {m['1']:.1f} phút mỗi câu khi chỉ đọc code, {m['2']:.1f} phút khi dùng LegacyLens."
+    human_en = f" Timed test with {people} developer(s): {m['1']:.1f} min per question reading code vs {m['2']:.1f} min with LegacyLens."
+print("TIẾNG VIỆT:")
+print(f"LegacyLens: agent đọc hiểu COBOL trên AWS CardDemo, chạy mô hình open-weight {model} trên Colab T4. "
+      f"Trích business rule kèm trích dẫn dòng code: P/R/F1 {pct(ev['precision'])}/{pct(ev['recall'])}/{pct(ev['f1'])} "
+      f"trên {n} nhãn (AI soạn nháp, tôi đối chiếu từng nhãn với mã nguồn, sửa và thêm 3 nhãn); "
+      f"{pct(ev['citation_validity'])} trích dẫn qua kiểm tra tự động; trả lời đúng {qa['correct']}/{qa['questions']} câu onboarding{qa_vi}.{human_vi}")
+print()
+print("ENGLISH:")
+print(f"LegacyLens: COBOL comprehension agent on AWS CardDemo using open-weight {model} on a Colab T4. "
+      f"Extracts business rules with line citations: P/R/F1 {pct(ev['precision'])}/{pct(ev['recall'])}/{pct(ev['f1'])} "
+      f"against {n} labels (AI-drafted, each checked against the source by me, 3 corrected or added); "
+      f"{pct(ev['citation_validity'])} of citations pass an automatic check; {qa['correct']}/{qa['questions']} onboarding questions answered correctly{qa_en}.{human_en}")
+PY
 ```
 
-Nói đúng về nhãn: "N nhãn do AI soạn nháp, tôi đối chiếu từng nhãn với mã nguồn, sửa và thêm 3 nhãn". Nếu được hỏi,
-nói rõ bản nháp đầu có trợ giúp của AI. Mang theo file nháp ghi các lần thử ở bước 8 để ôn trước phỏng vấn.
+Chép câu in ra vào CV, thêm link repo và link video. Câu cũng được lưu ở `out/cv.txt` (không lên GitHub).
 
-**Đúng khi:** repo Public, CI xanh, README không còn `[X]`, CV có link repo và link video.
+**Đúng khi:** in hai đoạn TIẾNG VIỆT và ENGLISH, số khớp với bảng Kết quả trong README.
+
+Nói đúng về nhãn như trong câu: AI soạn nháp, bạn đối chiếu từng nhãn. Nếu được hỏi, nói rõ bản nháp đầu có trợ giúp
+của AI. Ôn `reports/ghi_chu_lan_thu.md` và bước 11 trước phỏng vấn.
+
+**Xong toàn bộ khi:** repo Public, CI xanh, README không còn `[X]`, CV có link repo và link video.
 
 ---
 
@@ -580,12 +930,12 @@ nói rõ bản nháp đầu có trợ giúp của AI. Mang theo file nháp ghi c
 | Thấy | Nghĩa là | Làm |
 | --- | --- | --- |
 | `error: No LLM endpoint configured` | Chưa có `.env` hay secret | Bước 5.5 |
-| `Connection error`, `530`, `1033`, `Connection refused` | Colab đã ngắt, URL đường hầm không còn | Bước 5.8 |
-| `Name or service not known` | `LLM_BASE_URL` sai chính tả hoặc là URL của phiên Colab cũ | Chép lại 4 dòng từ ô 7 của notebook (5.5) |
+| `Connection error`, `530`, `1033`, `Connection refused`, `DỪNG: chưa nối được Colab` | Colab đã ngắt, URL đường hầm không còn | Bước 6.2, rồi dán lại khối đang làm |
+| `Name or service not known` | `LLM_BASE_URL` sai chính tả hoặc là URL của phiên Colab cũ | Bước 6.2 |
 | `Error code: 524` | Cloudflare cắt yêu cầu im lặng quá 100 giây | Bản mới tự bật streaming cho URL trycloudflare; cập nhật repo rồi chạy lại |
-| `0 tool calls` trong kết quả extract | Mô hình không đọc code | Chạy lại; vẫn vậy thì dùng 14B (5.9) |
+| `0 tool calls` trong kết quả extract | Mô hình không đọc code | Dán lại khối đang làm; một chương trình lỗi 3 lần thì xem 5.9 |
 | `404` hoặc `model not found` | `LLM_MODEL` khác tên mô hình đã tải | Chạy 5.6, chép đúng tên trong JSON vào `.env` |
-| `WARNING: a request used ... context tokens` | Hội thoại chạm giới hạn cửa sổ | `ARGS="--max-steps 10"`, hoặc 7B với `CONTEXT = 32768` |
+| `WARNING: a request used ... context tokens` | Hội thoại chạm giới hạn cửa sổ | Bước 6.4 |
 | `did not return valid JSON` | Mô hình trả sai định dạng | Chạy lại; vẫn lỗi thì xem 5.9 |
 | Lệnh chạy rất lâu, không in gì | Mô hình đang chạy trên T4, hoặc Colab treo | Chờ 5 phút; xem ô 8 của notebook |
 | Colab: `Cannot connect to GPU backend` | Hết GPU miễn phí | Chờ vài giờ; trong lúc chờ làm trước bước 11 |
@@ -593,7 +943,8 @@ nói rõ bản nháp đầu có trợ giúp của AI. Mang theo file nháp ghi c
 | Chỉ khi dùng API dự phòng: `429`, `413` | Vượt hạn mức gói miễn phí | `LLM_PAUSE=6` trong `.env`; `413` thì quay lại Colab |
 | `configured for Git LFS but 'git-lfs' was not found` rồi `failed to push` | Codespace có hook Git LFS thừa | `grep -l "git-lfs\|git lfs" .git/hooks/* \| xargs -r rm -v` rồi `git push` (repo không dùng LFS) |
 | `data/carddemo/app not found` | Chưa tải dữ liệu | `make data` |
-| CI đỏ ở bước lint | Code chưa format | `ruff format . && make lint`, rồi đẩy lại |
+| CI đỏ ở bước lint | Code chưa format | `cd /workspaces/legacylens && ruff format . && make lint`, rồi đẩy lại |
+| CI đỏ ở `test_readme_fill` sau khi có bảng Các lần thử | Repo đang ở bản zip cũ | Làm lại 5.0 với zip mới nhất (giữ nhãn và README) |
 
 ## Phụ lục B. Repo so với các ràng buộc bạn đã nêu
 

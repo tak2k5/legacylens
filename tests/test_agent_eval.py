@@ -1,6 +1,7 @@
 """Agent loop, citation check, scoring and doc rendering, with a scripted fake LLM (no network)."""
 
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace as NS
 
@@ -363,6 +364,8 @@ def test_readme_fill(tmp_path):
     from legacylens.readme import fill
 
     readme = (Path(__file__).parent.parent / "README.md").read_text()
+    # the real README may already hold attempts from make readme; start from the template table
+    readme = re.sub(r"### Các lần thử\n\n(?:\|.*\n)+\n?", "", readme)
     rep = tmp_path
     (rep / "eval.json").write_text(
         json.dumps({"programs": ["A"], "precision": 0.5, "recall": 0.25, "f1": 1 / 3, "citation_validity": 0.9})
