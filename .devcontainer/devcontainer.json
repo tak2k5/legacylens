@@ -1,0 +1,17 @@
+{
+  "name": "legacylens",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "hostRequirements": { "cpus": 2, "memory": "4gb" },
+  "postCreateCommand": "pip install -e '.[dev,ui]' && make data",
+  "forwardPorts": [8501],
+  "portsAttributes": { "8501": { "label": "LegacyLens UI" } },
+  "secrets": {
+    "LLM_BASE_URL": { "description": "URL printed by notebooks/colab_llm.ipynb, ending in /v1" },
+    "LLM_API_KEY": { "description": "Any value for Ollama on Colab, e.g. ollama" },
+    "LLM_CONTEXT": { "description": "Context window set in the notebook, e.g. 32768" },
+    "LLM_MODEL": { "description": "Model name, e.g. qwen2.5:7b-instruct" }
+  },
+  "customizations": {
+    "vscode": { "extensions": ["ms-python.python", "charliermarsh.ruff", "bierner.markdown-mermaid"] }
+  }
+}
