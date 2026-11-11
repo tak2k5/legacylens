@@ -1,0 +1,122 @@
+=== CBACT04C-G1 [routing] MAIN
+Category balances are processed grouped by account; when the account changes, the previous account is updated and the new one loaded.
+  condition: TRANCAT-ACCT-ID differs from WS-LAST-ACCT-NUM
+  outcome:   PERFORM 1050-UPDATE-ACCOUNT for the previous account, reset WS-TOTAL-INT
+  fields:    TRANCAT-ACCT-ID, WS-LAST-ACCT-NUM, WS-TOTAL-INT
+  194:                      IF TRANCAT-ACCT-ID NOT= WS-LAST-ACCT-NUM
+  195:                        IF WS-FIRST-TIME NOT = 'Y'
+  196:                           PERFORM 1050-UPDATE-ACCOUNT
+  197:                        ELSE
+  198:                           MOVE 'N' TO WS-FIRST-TIME
+  199:                        END-IF
+  200:                        MOVE 0 TO WS-TOTAL-INT
+  201:                        MOVE TRANCAT-ACCT-ID TO WS-LAST-ACCT-NUM
+  202:                        MOVE TRANCAT-ACCT-ID TO FD-ACCT-ID
+  203:                        PERFORM 1100-GET-ACCT-DATA
+  204:                        MOVE TRANCAT-ACCT-ID TO FD-XREF-ACCT-ID
+  205:                        PERFORM 1110-GET-XREF-DATA
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G1
+             fix text: make gold-set ID=CBACT04C-G1 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G1 L=START-END
+
+=== CBACT04C-G2 [data-access] MAIN
+The interest rate is looked up by the account's group, the transaction category and the transaction type.
+  condition: for every category balance record
+  outcome:   key = ACCT-GROUP-ID + TRANCAT-CD + TRANCAT-TYPE-CD in the disclosure group file
+  fields:    ACCT-GROUP-ID, TRANCAT-CD, TRANCAT-TYPE-CD
+  210:                      MOVE ACCT-GROUP-ID TO FD-DIS-ACCT-GROUP-ID
+  211:                      MOVE TRANCAT-CD TO FD-DIS-TRAN-CAT-CD
+  212:                      MOVE TRANCAT-TYPE-CD TO FD-DIS-TRAN-TYPE-CD
+  213:                      PERFORM 1200-GET-INTEREST-RATE
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G2
+             fix text: make gold-set ID=CBACT04C-G2 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G2 L=START-END
+
+=== CBACT04C-G3 [routing] MAIN
+Interest is only computed for categories whose rate is not zero.
+  condition: DIS-INT-RATE NOT = 0
+  outcome:   PERFORM 1300-COMPUTE-INTEREST
+  fields:    DIS-INT-RATE
+  214:                      IF DIS-INT-RATE NOT = 0
+  215:                        PERFORM 1300-COMPUTE-INTEREST
+  216:                        PERFORM 1400-COMPUTE-FEES
+  217:                      END-IF
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G3
+             fix text: make gold-set ID=CBACT04C-G3 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G3 L=START-END
+
+=== CBACT04C-G4 [data-access] 1200-GET-INTEREST-RATE
+If the account's group has no rate record, the DEFAULT group's rate is used.
+  condition: DISCGRP-STATUS = '23' (not found)
+  outcome:   FD-DIS-ACCT-GROUP-ID = 'DEFAULT', PERFORM 1200-A-GET-DEFAULT-INT-RATE
+  fields:    DISCGRP-STATUS, FD-DIS-ACCT-GROUP-ID
+  436:            IF  DISCGRP-STATUS  = '23'
+  437:                MOVE 'DEFAULT' TO FD-DIS-ACCT-GROUP-ID
+  438:                PERFORM 1200-A-GET-DEFAULT-INT-RATE
+  439:            END-IF
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G4
+             fix text: make gold-set ID=CBACT04C-G4 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G4 L=START-END
+
+=== CBACT04C-G5 [calculation] 1300-COMPUTE-INTEREST
+Monthly interest = category balance x annual rate (%) / 1200, summed per account.
+  condition: rate is not zero
+  outcome:   WS-MONTHLY-INT = (TRAN-CAT-BAL * DIS-INT-RATE) / 1200, added to WS-TOTAL-INT
+  fields:    WS-MONTHLY-INT, TRAN-CAT-BAL, DIS-INT-RATE, WS-TOTAL-INT
+  464:            COMPUTE WS-MONTHLY-INT
+  465:             = ( TRAN-CAT-BAL * DIS-INT-RATE) / 1200
+  466: 
+  467:            ADD WS-MONTHLY-INT  TO WS-TOTAL-INT
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G5
+             fix text: make gold-set ID=CBACT04C-G5 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G5 L=START-END
+
+=== CBACT04C-G6 [calculation] 1300-B-WRITE-TX
+Each interest charge gets a transaction ID made of the run date plus a running suffix.
+  condition: for every interest charge
+  outcome:   TRAN-ID = PARM-DATE + WS-TRANID-SUFFIX
+  fields:    PARM-DATE, WS-TRANID-SUFFIX, TRAN-ID
+  474:            ADD 1 TO WS-TRANID-SUFFIX
+  475: 
+  476:            STRING PARM-DATE,
+  477:                   WS-TRANID-SUFFIX
+  478:              DELIMITED BY SIZE
+  479:              INTO TRAN-ID
+  480:            END-STRING.
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G6
+             fix text: make gold-set ID=CBACT04C-G6 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G6 L=START-END
+
+=== CBACT04C-G7 [other] 1300-B-WRITE-TX
+Interest is posted as a system transaction of type 01, category 05, described as 'Int. for a/c' plus the account ID.
+  condition: for every interest charge
+  outcome:   TRAN-TYPE-CD '01', TRAN-CAT-CD '05', TRAN-SOURCE 'System', TRAN-AMT = WS-MONTHLY-INT
+  fields:    TRAN-TYPE-CD, TRAN-CAT-CD, WS-MONTHLY-INT
+  482:            MOVE '01'                 TO TRAN-TYPE-CD
+  483:            MOVE '05'                 TO TRAN-CAT-CD
+  484:            MOVE 'System'             TO TRAN-SOURCE
+  485:            STRING 'Int. for a/c ' ,
+  486:                   ACCT-ID
+  487:                   DELIMITED BY SIZE
+  488:             INTO TRAN-DESC
+  489:            END-STRING
+  490:            MOVE WS-MONTHLY-INT       TO TRAN-AMT
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G7
+             fix text: make gold-set ID=CBACT04C-G7 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G7 L=START-END
+
+=== CBACT04C-G8 [calculation] 1050-UPDATE-ACCOUNT
+At account update the total interest is added to the current balance and the cycle credit and debit are reset to zero.
+  condition: when the next account starts (never for the last account, see lines 219-220)
+  outcome:   ACCT-CURR-BAL += WS-TOTAL-INT; ACCT-CURR-CYC-CREDIT = 0; ACCT-CURR-CYC-DEBIT = 0
+  fields:    ACCT-CURR-BAL, WS-TOTAL-INT, ACCT-CURR-CYC-CREDIT
+  352:            ADD WS-TOTAL-INT  TO ACCT-CURR-BAL
+  353:            MOVE 0 TO ACCT-CURR-CYC-CREDIT
+  354:            MOVE 0 TO ACCT-CURR-CYC-DEBIT
+  355: 
+  356:            REWRITE FD-ACCTFILE-REC FROM  ACCOUNT-RECORD
+  [REVIEWED]  correct:  make gold-ok ID=CBACT04C-G8
+             fix text: make gold-set ID=CBACT04C-G8 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=CBACT04C-G8 L=START-END
+
+8 rules, 8 reviewed. Missing rule: step 4, part c of HUONG_DAN.md (make gold-add)

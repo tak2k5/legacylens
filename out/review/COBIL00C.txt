@@ -1,0 +1,132 @@
+=== COBIL00C-G1 [routing] MAIN-PARA
+Without a session (no COMMAREA) the user is sent back to sign-on.
+  condition: EIBCALEN = 0
+  outcome:   CDEMO-TO-PROGRAM = 'COSGN00C'
+  fields:    EIBCALEN, CDEMO-TO-PROGRAM
+  107:            IF EIBCALEN = 0
+  108:                MOVE 'COSGN00C' TO CDEMO-TO-PROGRAM
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G1
+             fix text: make gold-set ID=COBIL00C-G1 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G1 L=START-END
+
+=== COBIL00C-G2 [validation] PROCESS-ENTER-KEY
+Account ID is required.
+  condition: ACTIDINI is spaces or low-values
+  outcome:   'Acct ID can NOT be empty...'
+  fields:    ACTIDINI
+  159:                WHEN ACTIDINI OF COBIL0AI = SPACES OR LOW-VALUES
+  160:                    MOVE 'Y'     TO WS-ERR-FLG
+  161:                    MOVE 'Acct ID can NOT be empty...' TO
+  162:                                    WS-MESSAGE
+  163:                    MOVE -1       TO ACTIDINL OF COBIL0AI
+  164:                    PERFORM SEND-BILLPAY-SCREEN
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G2
+             fix text: make gold-set ID=COBIL00C-G2 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G2 L=START-END
+
+=== COBIL00C-G3 [validation] PROCESS-ENTER-KEY
+Payment needs confirmation: Y pays, N clears the screen, blank only shows the balance, anything else is invalid.
+  condition: CONFIRMI value
+  outcome:   Y/y: CONF-PAY-YES; N/n: CLEAR-CURRENT-SCREEN; other: 'Invalid value. Valid values are (Y/N)...'
+  fields:    CONFIRMI, CONF-PAY-YES
+  173:                EVALUATE CONFIRMI OF COBIL0AI
+  174:                    WHEN 'Y'
+  175:                    WHEN 'y'
+  176:                        SET CONF-PAY-YES TO TRUE
+  177:                        PERFORM READ-ACCTDAT-FILE
+  178:                    WHEN 'N'
+  179:                    WHEN 'n'
+  180:                        PERFORM CLEAR-CURRENT-SCREEN
+  181:                        MOVE 'Y'     TO WS-ERR-FLG
+  182:                    WHEN SPACES
+  183:                    WHEN LOW-VALUES
+  184:                        PERFORM READ-ACCTDAT-FILE
+  185:                    WHEN OTHER
+  186:                        MOVE 'Y'     TO WS-ERR-FLG
+  187:                        MOVE 'Invalid value. Valid values are (Y/N)...'
+  188:                                     TO WS-MESSAGE
+  189:                        MOVE -1      TO CONFIRML OF COBIL0AI
+  190:                        PERFORM SEND-BILLPAY-SCREEN
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G3
+             fix text: make gold-set ID=COBIL00C-G3 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G3 L=START-END
+
+=== COBIL00C-G4 [validation] PROCESS-ENTER-KEY
+An account with a zero or negative balance cannot be paid.
+  condition: ACCT-CURR-BAL <= ZEROS
+  outcome:   'You have nothing to pay...'
+  fields:    ACCT-CURR-BAL
+  198:                IF ACCT-CURR-BAL <= ZEROS AND
+  199:                   ACTIDINI OF COBIL0AI NOT = SPACES AND LOW-VALUES
+  200:                    MOVE 'Y'     TO WS-ERR-FLG
+  201:                    MOVE 'You have nothing to pay...' TO
+  202:                                    WS-MESSAGE
+  203:                    MOVE -1       TO ACTIDINL OF COBIL0AI
+  204:                    PERFORM SEND-BILLPAY-SCREEN
+  205:                END-IF
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G4
+             fix text: make gold-set ID=COBIL00C-G4 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G4 L=START-END
+
+=== COBIL00C-G5 [calculation] PROCESS-ENTER-KEY
+A bill payment always pays the full current balance and is recorded as a type 02, category 2 online payment.
+  condition: confirmed payment
+  outcome:   TRAN-AMT = ACCT-CURR-BAL; TRAN-TYPE-CD '02'; TRAN-DESC 'BILL PAYMENT - ONLINE'
+  fields:    TRAN-AMT, ACCT-CURR-BAL, TRAN-TYPE-CD
+  220:                    MOVE '02'                 TO TRAN-TYPE-CD
+  221:                    MOVE 2                    TO TRAN-CAT-CD
+  222:                    MOVE 'POS TERM'           TO TRAN-SOURCE
+  223:                    MOVE 'BILL PAYMENT - ONLINE' TO TRAN-DESC
+  224:                    MOVE ACCT-CURR-BAL        TO TRAN-AMT
+  225:                    MOVE XREF-CARD-NUM        TO TRAN-CARD-NUM
+  226:                    MOVE 999999999            TO TRAN-MERCHANT-ID
+  227:                    MOVE 'BILL PAYMENT'       TO TRAN-MERCHANT-NAME
+  228:                    MOVE 'N/A'                TO TRAN-MERCHANT-CITY
+  229:                    MOVE 'N/A'                TO TRAN-MERCHANT-ZIP
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G5
+             fix text: make gold-set ID=COBIL00C-G5 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G5 L=START-END
+
+=== COBIL00C-G6 [calculation] PROCESS-ENTER-KEY
+After the payment is written, the paid amount is subtracted from the account balance.
+  condition: confirmed payment written
+  outcome:   ACCT-CURR-BAL = ACCT-CURR-BAL - TRAN-AMT, then UPDATE-ACCTDAT-FILE
+  fields:    ACCT-CURR-BAL, TRAN-AMT
+  233:                    PERFORM WRITE-TRANSACT-FILE
+  234:                    COMPUTE ACCT-CURR-BAL = ACCT-CURR-BAL - TRAN-AMT
+  235:                    PERFORM UPDATE-ACCTDAT-FILE
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G6
+             fix text: make gold-set ID=COBIL00C-G6 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G6 L=START-END
+
+=== COBIL00C-G7 [calculation] PROCESS-ENTER-KEY
+The payment's transaction ID is the highest existing ID plus one.
+  condition: confirmed payment
+  outcome:   ADD 1 TO WS-TRAN-ID-NUM
+  fields:    WS-TRAN-ID-NUM, TRAN-ID
+  212:                    MOVE HIGH-VALUES TO TRAN-ID
+  213:                    PERFORM STARTBR-TRANSACT-FILE
+  214:                    PERFORM READPREV-TRANSACT-FILE
+  215:                    PERFORM ENDBR-TRANSACT-FILE
+  216:                    MOVE TRAN-ID     TO WS-TRAN-ID-NUM
+  217:                    ADD 1 TO WS-TRAN-ID-NUM
+  218:                    INITIALIZE TRAN-RECORD
+  219:                    MOVE WS-TRAN-ID-NUM       TO TRAN-ID
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G7
+             fix text: make gold-set ID=COBIL00C-G7 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G7 L=START-END
+
+=== COBIL00C-G8 [validation] READ-ACCTDAT-FILE
+An unknown account ID is rejected.
+  condition: READ of the account file returns NOTFND
+  outcome:   'Account ID NOT found...'
+  fields:    WS-ERR-FLG
+  359:                WHEN DFHRESP(NOTFND)
+  360:                    MOVE 'Y'     TO WS-ERR-FLG
+  361:                    MOVE 'Account ID NOT found...' TO
+  362:                                    WS-MESSAGE
+  [REVIEWED]  correct:  make gold-ok ID=COBIL00C-G8
+             fix text: make gold-set ID=COBIL00C-G8 F=summary V="..."   (F: summary, condition, outcome, ...)
+             fix lines: make gold-lines ID=COBIL00C-G8 L=START-END
+
+8 rules, 8 reviewed. Missing rule: step 4, part c of HUONG_DAN.md (make gold-add)
