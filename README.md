@@ -55,7 +55,7 @@ OpenAI nên cũng chạy với vLLM, LiteLLM hay API trả phí mà không phả
 
 ```bash
 make install            # thư viện
-make test               # 41 test offline, LLM giả lập, vài giây (1 test cần `make data`)
+make test               # 43 test offline, LLM giả lập, vài giây (1 test cần `make data`)
 make data               # tải CardDemo
 make stats graph        # thống kê + reports/graph.json, reports/graph.mmd
 make check-gold         # nhãn tay trong gold/ phải trích đúng dòng

@@ -119,7 +119,9 @@ def coerce(data: Any, model_cls: type, program: str | None = None) -> tuple[Any,
             fields = r.get("fields") or []
             if isinstance(fields, str):
                 fields = [f for f in re.split(r"[,\s]+", fields) if f]
-            rid = str(r.get("id") or f"{rp}-R{i}")
+            rid = str(r.get("id") or "")
+            if not rid.upper().startswith(rp):  # small models copy the example id of the schema (CBTRN02C-R1)
+                rid = f"{rp}-R{i}"
             if rid in seen:  # small models repeat ids; scoring and docs need them unique
                 rid = f"{rid}-{i}"
             seen.add(rid)

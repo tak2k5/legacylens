@@ -491,3 +491,32 @@ def test_merge_stream_without_index_keeps_calls_apart():
 
     msg, _, _ = merge_stream([c("a", "read_lines", '{"start": 1}'), c("b", "read_lines", '{"start": 9}')])
     assert [t.function.arguments for t in msg.tool_calls] == ['{"start": 1}', '{"start": 9}']
+
+
+def test_chunked_mode_reads_decision_paragraphs_and_keeps_citations_inside(idx):
+    agent = Agent(idx, client=FakeClient([]), model="fake")
+    chunks = agent.chunks("PAYCHK")
+    assert chunks and all(e - s < 60 for _, s, e in chunks)
+    para, s, e = next(c for c in chunks if c[1] <= 27 <= c[2])
+    first = {
+        "rules": [
+            {**RULE, "id": "CBTRN02C-R1", "citations": [{"start_line": 27, "end_line": 30}]},
+            {**RULE, "summary": "cites lines it was not shown", "citations": [{"start_line": 900, "end_line": 901}]},
+        ]
+    }
+    script = [text_msg(json.dumps(first) if c[1] == s else '{"rules": []}') for c in chunks]
+    client = FakeClient([*script, text_msg("Checks payments.")])
+    rules, checks, trace = Agent(idx, client=client, model="fake").extract_rules_chunked("PAYCHK")
+    assert [r.id for r in rules.rules] == ["PAYCHK-R1"] and rules.rules[0].paragraph
+    assert trace.dropped_rules == 1 and trace.tool_calls == 0 and trace.steps == len(chunks) + 1
+    assert checks[0]["valid"] and rules.purpose == "Checks payments."
+    assert all("tools" not in str(r[0]) for r in client.requests)
+
+
+def test_unreachable_rows_are_detected():
+    from legacylens.cli import _unreachable_row
+
+    assert _unreachable_row({"error": "Connection error."})
+    assert _unreachable_row({"error": "x", "error_type": "unreachable"})
+    assert not _unreachable_row({"error": "agent did not return valid JSON", "error_type": "RuntimeError"})
+    assert not _unreachable_row({"correct": True})

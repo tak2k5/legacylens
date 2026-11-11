@@ -21,7 +21,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from .citations import verify
-from .coerce import coerce, loads_lenient
+from .coerce import KINDS, coerce, loads_lenient
 from .index import Index
 from .schema import Answer, RuleSet
 from .tools import Toolbox
@@ -48,6 +48,26 @@ When done, reply with ONLY a JSON object matching this schema, no prose and no c
 MAX_CALLS_PER_STEP = 5
 CONTEXT_STOP = 0.6  # share of LLM_CONTEXT after which the agent is told to answer now
 
+SYSTEM_CHUNK = """You are a mainframe modernization analyst. You get numbered lines from one paragraph of a COBOL
+program. List every business rule these lines implement, for an engineer who joined the project today.
+
+A business rule is one decision: an IF or WHEN branch that rejects input, sets an error message or code, chooses
+where to go next (XCTL, PERFORM, RETURN), computes an amount, or reads or writes a business record under a
+condition. Write one rule per decision, never one rule for the whole paragraph. Skip plumbing: file status checks
+right after OPEN or CLOSE, screen header fill, ABEND helpers.
+
+For each rule cite the tight range that implements it, usually 2 to 10 lines, using only line numbers shown.
+condition and outcome name the values found in the code (codes, messages, limits). fields lists the COBOL data
+names the rule reads or sets.
+
+Reply with ONLY this JSON, no prose and no code fence. If the lines hold no business rule, reply {{"rules": []}}.
+{{"rules": [{{"kind": "one of {kinds}", "summary": "...", "condition": "...", "outcome": "...",
+"fields": ["..."], "citations": [{{"start_line": 0, "end_line": 0}}]}}]}}"""
+
+CHUNK_LINES = 60  # lines per request in chunked mode; long paragraphs are cut between top-level statements
+RE_DECISION = re.compile(r"\b(IF|EVALUATE|WHEN|COMPUTE|ADD|SUBTRACT|MULTIPLY|DIVIDE|XCTL|INVALID KEY|RETURN-CODE)\b")
+RE_PLUMBING = re.compile(r"(-OPEN|-CLOSE|DISPLAY-IO-STATUS|ABEND)", re.I)
+
 LANGUAGES = {"en": "English", "vi": "Vietnamese", "ja": "Japanese"}
 
 SYSTEM_ASK = """You answer questions about a COBOL code base for an engineer who joined the project today.
@@ -67,7 +87,8 @@ class Trace:
     repairs: int = 0
     nudges: int = 0
     capped_calls: int = 0  # tool calls ignored because one turn asked for more than MAX_CALLS_PER_STEP
-    dropped_rules: int = 0  # rules thrown away because they had no summary or no usable citation
+    dropped_rules: int = 0
+    chunks_failed: int = 0  # chunked mode: pieces whose answer stayed invalid JSON after one repair  # rules thrown away because they had no summary or no usable citation
     seconds: float = 0.0
     calls: list[str] = field(default_factory=list)
 
@@ -166,6 +187,104 @@ class Agent:
         result, trace = self._run(system, user, RuleSet, min_tool_calls=2, program=prog.program_id)
         checks = [verify(rule, self.index) for rule in result.rules]
         return result, checks, trace
+
+    def chunks(self, program: str) -> list[tuple[str, int, int]]:
+        """Paragraphs that hold a decision, cut into pieces of at most CHUNK_LINES lines. Static analysis picks
+        what to read, so a small model only has to explain the lines in front of it."""
+        prog = self.index.program(program)
+        out: list[tuple[str, int, int]] = []
+        for para in prog.paragraphs:
+            if RE_PLUMBING.search(para.name):
+                continue
+            lines = [
+                (n, t)
+                for n, t in self.index.read_lines(prog.path, para.start, para.end)
+                if len(t) > 7 and t[6] not in "*/"
+            ]
+            if not any(RE_DECISION.search(t[7:]) for _, t in lines):
+                continue
+            starts = {
+                n: len(t[7:]) - len(t[7:].lstrip())
+                for n, t in lines
+                if re.match(r"\s*(IF|EVALUATE|WHEN|PERFORM|MOVE|EXEC|READ|WRITE|REWRITE|COMPUTE)\b", t[7:])
+            }
+            start = para.start
+            while start <= para.end:
+                end = min(para.end, start + CHUNK_LINES - 1)
+                if end < para.end:  # cut before the least indented statement in the second half of the window
+                    cut = [n for n in starts if start + CHUNK_LINES // 2 < n <= end]
+                    if cut:
+                        least = min(starts[n] for n in cut)
+                        end = max(n for n in cut if starts[n] == least) - 1
+                out.append((para.name, start, end))
+                start = end + 1
+        return out
+
+    def extract_rules_chunked(self, program: str, lang: str = "en") -> tuple[RuleSet, list[dict], Trace]:
+        prog = self.index.program(program)
+        pid = prog.program_id
+        trace = Trace()
+        t0 = time.perf_counter()
+        system = SYSTEM_CHUNK.format(kinds=", ".join(sorted(KINDS)))
+        extra = os.getenv("LLM_EXTRA_RULES", "").strip()
+        if extra:
+            system = system.replace("\n\nReply with ONLY", f"\n{extra}\n\nReply with ONLY", 1)
+        language = LANGUAGES.get(lang, "English")
+        rules: list[Any] = []
+        failed = 0
+        for para, start, end in self.chunks(pid):
+            code = self.tools.read_lines(pid, start, end)
+            user = (
+                f"Program {pid}, paragraph {para}, lines {start}-{end}. Write summary, condition and outcome in "
+                f"{language}; keep COBOL names, codes and messages as in the code.\n\n{code}"
+            )
+            messages: list[dict[str, Any]] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+            got = None
+            for _attempt in range(2):
+                if trace.steps and self.pause:
+                    time.sleep(self.pause)
+                trace.steps += 1
+                msg, _ = self._complete(messages, trace, tools=False)
+                text = msg.content or ""
+                got, error, dropped = _parse(text, RuleSet, pid)
+                if got is not None:
+                    trace.dropped_rules += dropped
+                    break
+                trace.repairs += 1
+                messages += [
+                    {"role": "assistant", "content": text},
+                    {"role": "user", "content": f"Your JSON is invalid: {error}. Reply with the corrected JSON only."},
+                ]
+            if got is None:
+                failed += 1
+                continue
+            for r in got.rules:
+                inside = [c for c in r.citations if c.program == pid and start <= c.start_line and c.end_line <= end]
+                if not inside:  # cites lines it was not shown: cannot be trusted
+                    trace.dropped_rules += 1
+                    continue
+                rules.append(r.model_copy(update={"citations": inside, "paragraph": r.paragraph or para}))
+        for i, r in enumerate(rules, 1):
+            r.id, r.program = f"{pid}-R{i}", pid
+        trace.chunks_failed = failed
+        purpose = self._purpose(pid, language, trace)
+        trace.seconds = round(time.perf_counter() - t0, 2)
+        self._warn_context(trace)
+        result = RuleSet(program=pid, purpose=purpose, rules=rules)
+        return result, [verify(rule, self.index) for rule in result.rules], trace
+
+    def _purpose(self, pid: str, language: str, trace: Trace) -> str:
+        trace.steps += 1
+        messages = [
+            {"role": "system", "content": "You explain COBOL programs to a new engineer. Reply with plain text only."},
+            {
+                "role": "user",
+                "content": f"In two sentences in {language}, what does this program do for the business?\n\n"
+                + self.tools.program_outline(pid),
+            },
+        ]
+        msg, _ = self._complete(messages, trace, tools=False)
+        return re.sub(r"<think>.*?</think>", "", msg.content or "", flags=re.S).strip()[:600]
 
     def ask(self, question: str) -> tuple[Answer, list[dict], Trace]:
         system = SYSTEM_ASK.format(schema=json.dumps(Answer.model_json_schema()))
@@ -284,10 +403,10 @@ class Agent:
             f"{finish}); last error: {str(error)[:400]}; last output: {str(final_text)[:300]!r}"
         )
 
-    def _complete(self, messages: list[dict[str, Any]], trace: Trace) -> tuple[Any, str | None]:
-        kwargs: dict[str, Any] = dict(
-            model=self.model, messages=messages, tools=self.tools.specs(), temperature=self.temperature
-        )
+    def _complete(self, messages: list[dict[str, Any]], trace: Trace, tools: bool = True) -> tuple[Any, str | None]:
+        kwargs: dict[str, Any] = dict(model=self.model, messages=messages, temperature=self.temperature)
+        if tools:
+            kwargs["tools"] = self.tools.specs()
         if not self.stream:
             resp = self.client.chat.completions.create(**kwargs)
             self._count(resp, trace)

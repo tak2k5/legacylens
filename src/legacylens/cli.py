@@ -57,7 +57,8 @@ def cmd_extract(args) -> None:
     failed = []
     for name in programs:
         try:
-            rules, checks, trace = agent.extract_rules(name, lang=args.lang)
+            run = agent.extract_rules_chunked if args.mode == "chunks" else agent.extract_rules
+            rules, checks, trace = run(name, lang=args.lang)
             rules.program = idx.program(name).program_id  # files and logs always use the name we asked for
         except Exception as exc:  # one bad program (rate limit, invalid JSON) must not lose the others
             failed.append(name)
@@ -70,6 +71,7 @@ def cmd_extract(args) -> None:
             "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "program": rules.program,
             "model": agent.model,
+            "mode": args.mode,
             "rules": len(rules.rules),
             "citations_ok": ok,
             **trace.as_dict(),
@@ -80,7 +82,7 @@ def cmd_extract(args) -> None:
             f"{rules.program}: {len(rules.rules)} rules, {ok} pass the citation check, "
             f"{trace.tool_calls} tool calls ({trace.blocked_repeats} repeats blocked), "
             f"{trace.prompt_tokens}+{trace.completion_tokens} tokens, {trace.seconds}s"
-            + (f", {trace.dropped_rules} rules dropped (no summary or citation)" if trace.dropped_rules else "")
+            + (f", {trace.dropped_rules} rules dropped (no summary or usable citation)" if trace.dropped_rules else "")
         )
     if failed:
         sys.exit(f'failed: {" ".join(failed)}. Fix the cause, then run: make extract PROGS="{" ".join(failed)}"')
@@ -290,6 +292,13 @@ def cmd_eval(args) -> None:
         Path(args.out).with_suffix(".json").write_text(json.dumps(result | {"citation_validity": validity}, indent=2))
 
 
+def _unreachable_row(row: dict) -> bool:
+    if row.get("error_type"):
+        return row["error_type"] == "unreachable"
+    err = str(row.get("error") or "")  # rows written before error_type existed
+    return any(k in err for k in ("Connection error", "timed out", "524", "530", "1033"))
+
+
 def cmd_eval_qa(args) -> None:
     from .agent import Agent
     from .qa import dump_row, load_questions, summarize
@@ -302,8 +311,20 @@ def cmd_eval_qa(args) -> None:
     import openai
 
     unreachable = (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError)
+    keep: dict[str, dict] = {}
+    if args.retry_unreachable:  # re-ask only the questions that never reached the model, keep the other answers
+        old = json.loads(Path(args.out).with_suffix(".json").read_text())
+        if old["summary"].get("model") != agent.model:
+            sys.exit(
+                f"the saved answers come from {old['summary'].get('model')}, not {agent.model}: run without the flag"
+            )
+        keep = {r["id"]: r for r in old["rows"] if not _unreachable_row(r)}
+        print(f"re-asking {len(questions) - len(keep)} question(s), keeping {len(keep)} answer(s)")
     rows, down = [], 0
     for q in questions:
+        if q.id in keep:
+            rows.append(keep[q.id])
+            continue
         try:
             answer, checks, trace = agent.ask(q.question)
             row = dump_row(q, answer, checks, trace.as_dict())
@@ -322,6 +343,7 @@ def cmd_eval_qa(args) -> None:
                 "correct": False,
                 "citations_valid": None,
                 "error": str(exc)[:300],
+                "error_type": "unreachable" if isinstance(exc, unreachable) else type(exc).__name__,
             }
         rows.append(row)
         print(f"{q.id}: {'ok' if row['correct'] else 'wrong'}")
@@ -358,6 +380,12 @@ def main(argv: list[str] | None = None) -> None:
             s.add_argument("--out", default="out/rules")
             s.add_argument("--lang", default="en", choices=["en", "vi", "ja"])
             s.add_argument("--log", default="reports/runs.jsonl")
+            s.add_argument(
+                "--mode",
+                default="agent",
+                choices=["agent", "chunks"],
+                help="agent: the model decides what to read; chunks: static analysis picks each decision paragraph",
+            )
         else:
             s.add_argument("question")
         s.add_argument("--model", default=None, help="Defaults to $LLM_MODEL")
@@ -369,7 +397,11 @@ def main(argv: list[str] | None = None) -> None:
     d.add_argument("--rules", default="out/rules")
     d.add_argument("--out", default="docs/generated")
     d.add_argument("--lang", default="vi", choices=["vi", "en", "ja"])
-    d.add_argument("--link-base", default="../../data/carddemo/app/")
+    d.add_argument(  # data/ is not on GitHub: link to CardDemo at the pinned commit, so links work in the repo
+        "--link-base",
+        default="https://github.com/aws-samples/aws-mainframe-modernization-carddemo/blob/"
+        "59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e/app/",
+    )
     d.set_defaults(fn=cmd_doc)
 
     c = sub.add_parser("check-gold", help="Check that gold labels cite real lines")
@@ -405,6 +437,9 @@ def main(argv: list[str] | None = None) -> None:
     q.add_argument("--questions", default="onboarding/questions.jsonl")
     q.add_argument("--out", default="reports/eval_qa.md")
     q.add_argument("--limit", type=int, default=0)
+    q.add_argument(
+        "--retry-unreachable", action="store_true", help="re-ask only questions that failed to reach the model"
+    )
     q.add_argument("--model", default=None)
     q.add_argument("--max-steps", type=int, default=12)
     q.set_defaults(fn=cmd_eval_qa)

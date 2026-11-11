@@ -99,6 +99,7 @@ def dump_row(q: Question, answer: Answer, checks: list[dict], trace_dict: dict) 
     row["citations_valid"] = (sum(c["valid"] for c in checks) / len(checks)) if checks else None
     row["tokens"] = trace_dict.get("prompt_tokens", 0) + trace_dict.get("completion_tokens", 0)
     row["seconds"] = trace_dict.get("seconds", 0)
+    row["tool_calls"] = trace_dict.get("tool_calls", 0)
     row["answer"] = answer.answer
     row["citations"] = [json.loads(c.model_dump_json()) for c in answer.citations]
     return row
