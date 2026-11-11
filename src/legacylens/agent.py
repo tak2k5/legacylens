@@ -45,6 +45,9 @@ Rules for the answer:
 When done, reply with ONLY a JSON object matching this schema, no prose and no code fence:
 {schema}"""
 
+MAX_CALLS_PER_STEP = 5
+CONTEXT_STOP = 0.6  # share of LLM_CONTEXT after which the agent is told to answer now
+
 LANGUAGES = {"en": "English", "vi": "Vietnamese", "ja": "Japanese"}
 
 SYSTEM_ASK = """You answer questions about a COBOL code base for an engineer who joined the project today.
@@ -63,6 +66,7 @@ class Trace:
     max_prompt_tokens: int = 0  # largest single request: must stay below the model's context window
     repairs: int = 0
     nudges: int = 0
+    capped_calls: int = 0  # tool calls ignored because one turn asked for more than MAX_CALLS_PER_STEP
     dropped_rules: int = 0  # rules thrown away because they had no summary or no usable citation
     seconds: float = 0.0
     calls: list[str] = field(default_factory=list)
@@ -184,12 +188,16 @@ class Agent:
         error = None
         fallback: tuple[Any, int] | None = None
         nudges = 0
+        full_warned = False
         while trace.steps < self.max_steps:
             if trace.steps and self.pause:
                 time.sleep(self.pause)
             trace.steps += 1
             msg, finish = self._complete(messages, trace)
             tool_calls = getattr(msg, "tool_calls", None) or []
+            if len(tool_calls) > MAX_CALLS_PER_STEP:  # small models sometimes emit hundreds of calls in one turn
+                trace.capped_calls += len(tool_calls) - MAX_CALLS_PER_STEP
+                tool_calls = tool_calls[:MAX_CALLS_PER_STEP]
             if not tool_calls:
                 final_text = msg.content or ""
                 # Small open models often answer from the outline alone, or reply with nothing. Send them back to
@@ -257,6 +265,15 @@ class Agent:
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": content})
             if trace.steps == self.max_steps - 1:
                 messages.append({"role": "user", "content": "Step budget almost used. Give the final JSON now."})
+            elif self.context and trace.max_prompt_tokens >= CONTEXT_STOP * self.context and not full_warned:
+                # Ollama silently drops the start of an over-long prompt (the instructions): stop reading in time
+                full_warned = True
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "The context window is nearly full. Stop reading; give the final JSON now.",
+                    }
+                )
         trace.seconds = round(time.perf_counter() - t0, 2)
         self._warn_context(trace)
         if fallback:
@@ -311,7 +328,12 @@ def merge_stream(chunks) -> tuple[Any, str | None, Any]:
                 content.append(delta.content)
             for i, tc in enumerate(getattr(delta, "tool_calls", None) or []):
                 idx = getattr(tc, "index", None)
-                slot = calls.setdefault(i if idx is None else idx, {"id": "", "name": "", "arguments": ""})
+                if idx is None:  # servers without index: a new id starts a new call
+                    new_id = getattr(tc, "id", None)
+                    last = max(calls) if calls else None
+                    idx = last if last is not None and (not new_id or calls[last]["id"] in ("", new_id)) else len(calls)
+                    idx += i
+                slot = calls.setdefault(idx, {"id": "", "name": "", "arguments": ""})
                 slot["id"] = getattr(tc, "id", None) or slot["id"]
                 fn = getattr(tc, "function", None)
                 if fn is not None:

@@ -438,3 +438,56 @@ def test_parse_reports_real_errors():
 
     rs, err, _ = _parse('{"program": "X", "rules": [ {"summary": "a" } }', RuleSet, "X")
     assert rs is None and "no JSON object" not in err
+
+
+def test_agent_caps_runaway_tool_calls_and_keeps_program_name(idx):
+    fn = NS(name="read_paragraph", arguments=json.dumps({"program": "PAYCHK", "paragraph": "1000-CHECK-AMOUNT"}))
+    flood = NS(
+        choices=[NS(message=NS(content=None, tool_calls=[NS(id=f"f{i}", function=fn) for i in range(700)]))],
+        usage=NS(prompt_tokens=100, completion_tokens=10),
+    )
+    wrong_name = {"program": "OTHERPGM", "purpose": "x", "rules": [{**RULE, "program": "OTHERPGM"}]}
+    client = FakeClient([flood, read(1), text_msg(json.dumps(wrong_name))])
+    rules, _, trace = Agent(idx, client=client, model="fake").extract_rules("PAYCHK")
+    assert trace.tool_calls == 6 and trace.capped_calls == 695
+    assert rules.program == "PAYCHK" and rules.rules[0].program == "PAYCHK"
+
+
+def test_parse_rejects_non_ruleset_and_dedupes_ids():
+    from legacylens.agent import _parse
+    from legacylens.schema import RuleSet
+
+    rs, err, _ = _parse('{"name": "read_lines", "arguments": {"program": "X", "start": 1, "end": 5}}', RuleSet, "X")
+    assert rs is None and err
+    two = {"rules": [RULE, RULE]}
+    rs, err, _ = _parse(json.dumps(two), RuleSet, "PAYCHK")
+    assert err is None and len({r.id for r in rs.rules}) == 2
+
+
+def test_numeric_keywords_match_whole_numbers():
+    from legacylens.qa import Question, score_answer
+    from legacylens.schema import Answer
+
+    q = Question(id="Q", question="?", keywords=[["4"]])
+    assert not score_answer(q, Answer(answer="see line 42"))["keywords_ok"]
+    assert score_answer(q, Answer(answer="it ends with RETURN-CODE 4."))["keywords_ok"]
+
+
+def test_agent_stops_reading_when_context_is_nearly_full(idx, monkeypatch):
+    monkeypatch.setenv("LLM_CONTEXT", "150")
+    good = {"program": "PAYCHK", "purpose": "x", "rules": [RULE]}
+    client = FakeClient([read(0), read(1), text_msg(json.dumps(good))])
+    rules, _, trace = Agent(idx, client=client, model="fake").extract_rules("PAYCHK")
+    assert len(rules.rules) == 1
+    assert "nearly full" in client.requests[1][-1]["content"]
+
+
+def test_merge_stream_without_index_keeps_calls_apart():
+    from legacylens.agent import merge_stream
+
+    def c(id_, name, args):
+        tc = NS(id=id_, function=NS(name=name, arguments=args))
+        return NS(choices=[NS(delta=NS(content=None, tool_calls=[tc]), finish_reason=None)], usage=None)
+
+    msg, _, _ = merge_stream([c("a", "read_lines", '{"start": 1}'), c("b", "read_lines", '{"start": 9}')])
+    assert [t.function.arguments for t in msg.tool_calls] == ['{"start": 1}', '{"start": 9}']

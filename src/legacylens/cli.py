@@ -58,6 +58,7 @@ def cmd_extract(args) -> None:
     for name in programs:
         try:
             rules, checks, trace = agent.extract_rules(name, lang=args.lang)
+            rules.program = idx.program(name).program_id  # files and logs always use the name we asked for
         except Exception as exc:  # one bad program (rate limit, invalid JSON) must not lose the others
             failed.append(name)
             print(f"{name}: FAILED {type(exc).__name__}: {str(exc)[:300]}")
@@ -298,12 +299,21 @@ def cmd_eval_qa(args) -> None:
     questions = load_questions(args.questions)
     if args.limit:
         questions = questions[: args.limit]
-    rows = []
+    import openai
+
+    unreachable = (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError)
+    rows, down = [], 0
     for q in questions:
         try:
             answer, checks, trace = agent.ask(q.question)
             row = dump_row(q, answer, checks, trace.as_dict())
+            down = 0
         except Exception as exc:  # count as wrong, keep going
+            down = down + 1 if isinstance(exc, unreachable) else 0
+            if down >= 3:  # the server is gone (Colab stopped): scoring the rest as wrong would be a fake number
+                sys.exit(
+                    f"stopped at {q.id}: 3 questions in a row could not reach the model ({exc}). Reconnect and rerun."
+                )
             row = {
                 "id": q.id,
                 "keywords_ok": False,

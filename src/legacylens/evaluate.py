@@ -74,8 +74,8 @@ def score(gold: list[BusinessRule], pred: list[BusinessRule], programs: set[str]
     recall = tp / len(gold) if gold else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     kind_ok = sum(g.kind == p.kind for g, p, _ in pairs)
-    matched_g = {g.id for g, _, _ in pairs}
-    matched_p = {p.id for _, p, _ in pairs}
+    matched_g = {id(g) for g, _, _ in pairs}  # by object, so a repeated id cannot hide a miss
+    matched_p = {id(p) for _, p, _ in pairs}
     return {
         "programs": sorted(programs),
         "gold": len(gold),
@@ -85,8 +85,8 @@ def score(gold: list[BusinessRule], pred: list[BusinessRule], programs: set[str]
         "recall": round(recall, 3),
         "f1": round(f1, 3),
         "kind_accuracy_on_matched": round(kind_ok / tp, 3) if tp else None,
-        "missed": [g.id for g in gold if g.id not in matched_g],
-        "extra": [p.id for p in pred if p.id not in matched_p],
+        "missed": [g.id for g in gold if id(g) not in matched_g],
+        "extra": [p.id for p in pred if id(p) not in matched_p],
         "pairs": [{"gold": g.id, "pred": p.id, "overlap": s} for g, p, s in pairs],
     }
 

@@ -101,15 +101,16 @@ def coerce(data: Any, model_cls: type, program: str | None = None) -> tuple[Any,
     if model_cls is RuleSet:
         if isinstance(data, list):
             data = {"rules": data}
-        if not isinstance(data, dict):
-            return data, 0
-        prog = str(data.get("program") or program or "").strip().upper() or None
-        rules, dropped = [], 0
+        if not isinstance(data, dict) or "rules" not in data:
+            return data, 0  # not a rule set at all (e.g. a tool call written as text): let validation reject it
+        # the program we asked about wins: a model that copies another program's name must not overwrite its file
+        prog = str(program or data.get("program") or "").strip().upper() or None
+        rules, dropped, seen = [], 0, set()
         for i, r in enumerate(data.get("rules") or [], 1):
             if not isinstance(r, dict):
                 dropped += 1
                 continue
-            rp = str(r.get("program") or prog or "").strip().upper() or None
+            rp = prog or str(r.get("program") or "").strip().upper() or None
             summary = _text(r.get("summary") or r.get("description") or r.get("rule"))
             cits = _citations(r.get("citations", r.get("citation")), rp)
             if not summary or not cits or not rp:
@@ -118,9 +119,13 @@ def coerce(data: Any, model_cls: type, program: str | None = None) -> tuple[Any,
             fields = r.get("fields") or []
             if isinstance(fields, str):
                 fields = [f for f in re.split(r"[,\s]+", fields) if f]
+            rid = str(r.get("id") or f"{rp}-R{i}")
+            if rid in seen:  # small models repeat ids; scoring and docs need them unique
+                rid = f"{rid}-{i}"
+            seen.add(rid)
             rules.append(
                 {
-                    "id": str(r.get("id") or f"{rp}-R{i}"),
+                    "id": rid,
                     "program": rp,
                     "paragraph": _text(r.get("paragraph")),
                     "kind": _kind(r.get("kind") or r.get("type")),

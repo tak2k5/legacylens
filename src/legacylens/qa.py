@@ -7,6 +7,7 @@ answer lives in specific lines, expected citations; an answer "hits" when one of
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -30,9 +31,17 @@ def _overlaps(a: Citation, b: Citation) -> bool:
     return a.program == b.program and a.start_line <= b.end_line and b.start_line <= a.end_line
 
 
+def _has(text: str, word: str) -> bool:
+    """Numbers must match as a whole number ("4" is not found in "line 42"); other words as substrings."""
+    word = word.lower()
+    if word.isdigit():
+        return re.search(rf"(?<!\d){word}(?!\d)", text) is not None
+    return word in text
+
+
 def score_answer(q: Question, answer: Answer) -> dict:
     text = answer.answer.lower()
-    groups = [any(word.lower() in text for word in group) for group in q.keywords]
+    groups = [any(_has(text, word) for word in group) for group in q.keywords]
     hit = None
     if q.expected:
         hit = any(_overlaps(c, e) for c in answer.citations for e in q.expected)

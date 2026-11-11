@@ -48,7 +48,8 @@ Mất khoảng 30 phút cho lần đầu, kể cả 5.0. Những lần sau chỉ
 ### 5.0. Cập nhật repo lên bản mới nhất
 
 Bản zip mới có thêm lệnh `make readme` (tự chép số vào README), cách thử prompt không cần sửa code (bước 7 và 8), và
-phần đọc JSON chịu được lỗi định dạng nhỏ của mô hình 7B (sửa lỗi `did not return valid JSON` ở bước 6). Nhãn bạn đã
+phần đọc JSON chịu được lỗi định dạng nhỏ của mô hình 7B (sửa lỗi `did not return valid JSON` ở bước 6), và
+chặn mô hình gọi hàng trăm tool một lượt, ghi nhầm tên chương trình hay đọc quá cửa sổ ngữ cảnh. Nhãn bạn đã
 duyệt, README đã sửa ở 4.9 và kết quả đã chạy trong `out/` được giữ nguyên. Đã làm 5.0 rồi vẫn làm lại được.
 
 **Làm:**
@@ -75,7 +76,7 @@ git rm -r -q --cached data 2>/dev/null || true
 git ls-files -z | xargs -0 rm -f
 cp -a /tmp/ll/legacylens/. .
 cp -a /tmp/gold_cua_toi/. gold/ && cp /tmp/README_cua_toi.md README.md
-sed -i 's/# 3[0-9] test offline/# 36 test offline/' README.md
+sed -i 's/# [0-9][0-9] test offline/# 41 test offline/' README.md
 make install > /dev/null && make test | tail -1 && make check-gold | tail -1
 make help | grep -E "readme|gold-ok"
 git add -A && git commit -qm "Cập nhật bản mới: make readme, thử prompt" && git push
@@ -83,7 +84,7 @@ echo "XONG"
 EOF
 ```
 
-**Đúng khi:** in `36 passed`, `N/N gold rules pass` với N là số nhãn của bạn, hai dòng `gold-ok` và `readme`, rồi
+**Đúng khi:** in `41 passed`, `N/N gold rules pass` với N là số nhãn của bạn, hai dòng `gold-ok` và `readme`, rồi
 `main -> main` và `XONG`. Nếu in `DỪNG` hoặc dừng giữa chừng mà không có `XONG`, chưa có gì bị đẩy lên GitHub: gửi
 lại log trước khi làm tiếp.
 
@@ -258,7 +259,7 @@ cd /workspaces/legacylens
 test -f .env || echo "THIẾU .env: làm 6.2"
 set -a; . ./.env 2>/dev/null; set +a
 echo "Mô hình trong .env: $LLM_MODEL"
-curl -sf -m 20 "$LLM_BASE_URL/models" | grep -o '"id":"[^"]*"' || echo "CHƯA NỐI ĐƯỢC: làm 6.2"
+curl -sf -m 20 "$LLM_BASE_URL/models" | grep -o '"id": *"[^"]*"' || echo "CHƯA NỐI ĐƯỢC: làm 6.2"
 ```
 
 **Đúng khi:** dòng cuối dạng `"id":"qwen2.5:7b-instruct"`, cùng tên với dòng `Mô hình trong .env`. Nếu đúng thì
@@ -289,7 +290,7 @@ mv /tmp/env_moi .env && echo "đã lưu .env"
 set -a; . ./.env; set +a
 echo "Đang chờ đường hầm mới (tối đa 1 phút)..."
 for i in 1 2 3 4 5 6; do
-  curl -sf -m 20 "$LLM_BASE_URL/models" | grep -o '"id":"[^"]*"' && exit 0
+  curl -sf -m 20 "$LLM_BASE_URL/models" | grep -o '"id": *"[^"]*"' && exit 0
   sleep 10
 done
 echo "CHƯA NỐI ĐƯỢC: xem tab Colab, ô 7 có in URL chưa và góc phải còn chữ T4 không. Rồi dán lại khối này."
@@ -324,6 +325,7 @@ fi
 for p in COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C; do
   if [ -f out/lan1/$p.xong ]; then echo "$p: đã xong ở lần trước, bỏ qua"; continue; fi
   make extract PROGS=$p
+  tail -1 reports/runs.jsonl | grep -q "\"program\": \"$p\"" || { echo "DỪNG: $p không ghi được kết quả. Gửi log cho mình."; exit 1; }
   if tail -1 reports/runs.jsonl | grep -qE '"tool_calls": 0[,}]'; then
     echo "DỪNG: $p có 0 tool calls, mô hình không đọc code. Dán lại khối này."; exit 1
   fi
@@ -507,6 +509,7 @@ if [ ! -d out/lan$L ]; then mkdir -p out/lan$L; rm -rf out/rules; rm -f reports/
 for p in COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C; do
   if [ -f out/lan$L/$p.xong ]; then echo "$p: đã xong ở lần trước, bỏ qua"; continue; fi
   make extract PROGS=$p
+  tail -1 reports/runs.jsonl | grep -q "\"program\": \"$p\"" || { echo "DỪNG: $p không ghi được kết quả. Gửi log cho mình."; exit 1; }
   if tail -1 reports/runs.jsonl | grep -qE '"tool_calls": 0[,}]'; then
     echo "DỪNG: $p có 0 tool calls. Dán lại khối này."; exit 1
   fi
@@ -565,6 +568,7 @@ if [ ! -d out/lan$L ]; then mkdir -p out/lan$L; rm -rf out/rules; rm -f reports/
 for p in COSGN00C COBIL00C CBTRN02C CBACT04C COTRN02C; do
   if [ -f out/lan$L/$p.xong ]; then echo "$p: đã xong ở lần trước, bỏ qua"; continue; fi
   make extract PROGS=$p ARGS="--max-steps 10"
+  tail -1 reports/runs.jsonl | grep -q "\"program\": \"$p\"" || { echo "DỪNG: $p không ghi được kết quả. Gửi log cho mình."; exit 1; }
   if tail -1 reports/runs.jsonl | grep -qE '"tool_calls": 0[,}]'; then
     echo "DỪNG: $p có 0 tool calls. Dán lại khối này."; exit 1
   fi
@@ -791,7 +795,10 @@ code scripts/repro_cbact04c.cbl
 
 Đọc dòng 188-222 in ra trong terminal, so với file `repro_cbact04c.cbl` vừa mở.
 
-**Đúng khi:** chương trình in `balance updated ... for account 101` và không có dòng nào cho account 202. Bạn tự
+**Đúng khi:** chương trình in 5 dòng: `interest transaction written` hai lần cho account 101,
+`balance updated (interest added) for account 101`, `interest transaction written for account 202`, rồi `end of run`.
+Điểm mấu chốt: account 202 có giao dịch lãi nhưng **không có** dòng `balance updated`. Hai dòng cảnh báo
+`_FORTIFY_SOURCE` lúc biên dịch là vô hại. Bạn tự
 giải thích được bằng lời: vòng `PERFORM UNTIL END-OF-FILE = 'Y'` kiểm tra trước mỗi lượt, nên mỗi lượt bắt đầu với
 `END-OF-FILE = 'N'`, và nhánh `ELSE` ở dòng 219 không bao giờ chạy. Vì vậy tài khoản cuối cùng không bao giờ được cập
 nhật.
@@ -813,7 +820,7 @@ echo "Số dòng còn [X]: $(grep -c '\[X\]' README.md)"
 make test lint check-gold 2>&1 | grep -E "passed|failed|All checks|gold rules"
 ```
 
-**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `36 passed` (hoặc `35 passed, 1 skipped`),
+**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `41 passed` (hoặc `40 passed, 1 skipped`),
 `All checks passed!`, `N/N gold rules pass`.
 
 **Nếu lỗi:** còn `[X]` thì xem bước nào chưa làm: dòng Precision là bước 7, dòng Người trả lời là bước 10. Lint báo
@@ -1033,7 +1040,7 @@ make lint
 make check-gold
 ```
 
-**Đúng khi:** `make test` in `32 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
+**Đúng khi:** `make test` in `41 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
 là số nhãn sau khi bạn duyệt.
 
 #### U5. Đẩy lên GitHub
@@ -1129,7 +1136,7 @@ make lint
 **Đúng khi:**
 
 - `make data` in `CardDemo @ 59cc6c2... -> data/carddemo`.
-- `make test` in `32 passed`.
+- `make test` in `41 passed`.
 - `make lint` in `All checks passed!` và `files already formatted`.
 
 **Nếu lỗi:** `make: python: No such file` thì chạy `make install PY=python3` và thêm `PY=python3` vào mọi lệnh
