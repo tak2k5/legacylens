@@ -79,6 +79,7 @@ def cmd_extract(args) -> None:
             f"{rules.program}: {len(rules.rules)} rules, {ok} pass the citation check, "
             f"{trace.tool_calls} tool calls ({trace.blocked_repeats} repeats blocked), "
             f"{trace.prompt_tokens}+{trace.completion_tokens} tokens, {trace.seconds}s"
+            + (f", {trace.dropped_rules} rules dropped (no summary or citation)" if trace.dropped_rules else "")
         )
     if failed:
         sys.exit(f'failed: {" ".join(failed)}. Fix the cause, then run: make extract PROGS="{" ".join(failed)}"')

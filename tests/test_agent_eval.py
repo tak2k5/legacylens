@@ -403,3 +403,38 @@ def test_extra_rules_reach_the_prompt(idx, monkeypatch):
     Agent(idx, client=client, model="fake").extract_rules("PAYCHK")
     system = client.requests[0][0]["content"]
     assert "- Each WHEN branch is a separate rule.\n\nWhen done," in system
+
+
+def test_parse_tolerates_small_model_shapes():
+    from legacylens.agent import _parse
+    from legacylens.schema import RuleSet
+
+    text = """```json
+{
+  "program": "cosgn00c",
+  "purpose": "Sign-on.",
+  "rules": [
+    {"id": "R1", "kind": "Validation", "summary": "User id is required",
+     "fields": "USERIDI, WS-ERR-FLG", "citations": [{"program": "COSGN00C", "lines": "118-122"}],},
+    {"kind": "navigation", "description": "Admin goes to COADM01C", "citations": ["COSGN00C:230-235"]},
+    {"kind": "weird", "summary": "Bad range swapped", "citations": [{"start_line": 90, "end_line": 88}]},
+    {"kind": "validation", "summary": "No citation, must be dropped", "citations": []},
+  ]
+}
+```"""
+    rs, err, dropped = _parse(text, RuleSet, "COSGN00C")
+    assert err is None and dropped == 1 and rs.program == "COSGN00C"
+    r1, r2, r3 = rs.rules
+    assert r1.kind == "validation" and r1.fields == ["USERIDI", "WS-ERR-FLG"]
+    assert (r1.citations[0].start_line, r1.citations[0].end_line) == (118, 122)
+    assert r2.kind == "routing" and r2.summary.startswith("Admin") and r2.program == "COSGN00C"
+    assert r3.kind == "other" and (r3.citations[0].start_line, r3.citations[0].end_line) == (88, 90)
+    assert r2.citations[0].start_line == 230
+
+
+def test_parse_reports_real_errors():
+    from legacylens.agent import _parse
+    from legacylens.schema import RuleSet
+
+    rs, err, _ = _parse('{"program": "X", "rules": [ {"summary": "a" } }', RuleSet, "X")
+    assert rs is None and "no JSON object" not in err

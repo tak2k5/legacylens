@@ -21,6 +21,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from .citations import verify
+from .coerce import coerce, loads_lenient
 from .index import Index
 from .schema import Answer, RuleSet
 from .tools import Toolbox
@@ -62,6 +63,7 @@ class Trace:
     max_prompt_tokens: int = 0  # largest single request: must stay below the model's context window
     repairs: int = 0
     nudges: int = 0
+    dropped_rules: int = 0  # rules thrown away because they had no summary or no usable citation
     seconds: float = 0.0
     calls: list[str] = field(default_factory=list)
 
@@ -157,7 +159,7 @@ class Agent:
             f"outcome in {LANGUAGES.get(lang, 'English')}; keep COBOL names, codes and messages as in the code."
             f"\n\nOutline:\n{self.tools.program_outline(prog.program_id)}"
         )
-        result, trace = self._run(system, user, RuleSet, min_tool_calls=2)
+        result, trace = self._run(system, user, RuleSet, min_tool_calls=2, program=prog.program_id)
         checks = [verify(rule, self.index) for rule in result.rules]
         return result, checks, trace
 
@@ -171,12 +173,16 @@ class Agent:
         return result, checks, trace
 
     # ---------- loop ----------
-    def _run(self, system: str, user: str, model_cls: type[BaseModel], min_tool_calls: int = 0) -> tuple[Any, Trace]:
+    def _run(
+        self, system: str, user: str, model_cls: type[BaseModel], min_tool_calls: int = 0, program: str | None = None
+    ) -> tuple[Any, Trace]:
         trace = Trace()
         guard = LoopGuard()
         t0 = time.perf_counter()
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         final_text = None
+        error = None
+        fallback: tuple[Any, int] | None = None
         nudges = 0
         while trace.steps < self.max_steps:
             if trace.steps and self.pause:
@@ -205,11 +211,18 @@ class Agent:
                         }
                     )
                     continue
-                parsed, error = _parse(final_text, model_cls)
-                if parsed is not None:
+                parsed, error, dropped = _parse(final_text, model_cls, program)
+                if parsed is not None and (not dropped or trace.repairs >= 2):
+                    trace.dropped_rules = dropped
                     trace.seconds = round(time.perf_counter() - t0, 2)
                     self._warn_context(trace)
                     return parsed, trace
+                if parsed is not None:  # usable, but some rules lost: ask once more, keep this as a fallback
+                    fallback = (parsed, dropped)
+                    error = (
+                        f"{dropped} rule(s) had no summary or no citation with program, start_line and end_line, "
+                        "so they would be removed"
+                    )
                 if trace.repairs >= 2:
                     break
                 trace.repairs += 1
@@ -246,9 +259,12 @@ class Agent:
                 messages.append({"role": "user", "content": "Step budget almost used. Give the final JSON now."})
         trace.seconds = round(time.perf_counter() - t0, 2)
         self._warn_context(trace)
+        if fallback:
+            trace.dropped_rules = fallback[1]
+            return fallback[0], trace
         raise RuntimeError(
             f"agent did not return valid JSON in {trace.steps} steps ({trace.tool_calls} tool calls, finish_reason "
-            f"{finish}); last output: {str(final_text)[:300]!r}"
+            f"{finish}); last error: {str(error)[:400]}; last output: {str(final_text)[:300]!r}"
         )
 
     def _complete(self, messages: list[dict[str, Any]], trace: Trace) -> tuple[Any, str | None]:
@@ -310,15 +326,22 @@ def merge_stream(chunks) -> tuple[Any, str | None, Any]:
     return SimpleNamespace(content="".join(content), tool_calls=tool_calls), finish, usage
 
 
-def _parse(text: str, model_cls: type[BaseModel]):
+def _parse(text: str, model_cls: type[BaseModel], program: str | None = None):
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()  # reasoning models (Qwen3, DeepSeek-R1)
     if text.startswith("```"):
         text = text.strip("`")
         text = text.split("\n", 1)[1] if "\n" in text else text
     start, end = text.find("{"), text.rfind("}")
+    if text.lstrip().startswith("["):  # a bare list of rules
+        start, end = text.find("["), text.rfind("]")
     if start < 0 or end < 0:
-        return None, "no JSON object found"
+        return None, "no JSON object found", 0
     try:
-        return model_cls.model_validate_json(text[start : end + 1]), None
+        data = loads_lenient(text[start : end + 1])
+    except json.JSONDecodeError as exc:
+        return None, f"not valid JSON: {exc}", 0
+    data, dropped = coerce(data, model_cls, program)
+    try:
+        return model_cls.model_validate(data), None, dropped
     except ValidationError as exc:
-        return None, str(exc)[:800]
+        return None, str(exc)[:800], dropped

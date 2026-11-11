@@ -47,8 +47,9 @@ Mất khoảng 30 phút cho lần đầu, kể cả 5.0. Những lần sau chỉ
 
 ### 5.0. Cập nhật repo lên bản mới nhất
 
-Bản zip mới có thêm lệnh `make readme` (tự chép số vào README) và cách thử prompt không cần sửa code, dùng ở bước 7
-và 8. Nhãn bạn đã duyệt và README đã sửa ở 4.9 được giữ nguyên.
+Bản zip mới có thêm lệnh `make readme` (tự chép số vào README), cách thử prompt không cần sửa code (bước 7 và 8), và
+phần đọc JSON chịu được lỗi định dạng nhỏ của mô hình 7B (sửa lỗi `did not return valid JSON` ở bước 6). Nhãn bạn đã
+duyệt, README đã sửa ở 4.9 và kết quả đã chạy trong `out/` được giữ nguyên. Đã làm 5.0 rồi vẫn làm lại được.
 
 **Làm:**
 
@@ -74,7 +75,7 @@ git rm -r -q --cached data 2>/dev/null || true
 git ls-files -z | xargs -0 rm -f
 cp -a /tmp/ll/legacylens/. .
 cp -a /tmp/gold_cua_toi/. gold/ && cp /tmp/README_cua_toi.md README.md
-sed -i 's/# 3[0-9] test offline/# 34 test offline/' README.md
+sed -i 's/# 3[0-9] test offline/# 36 test offline/' README.md
 make install > /dev/null && make test | tail -1 && make check-gold | tail -1
 make help | grep -E "readme|gold-ok"
 git add -A && git commit -qm "Cập nhật bản mới: make readme, thử prompt" && git push
@@ -82,7 +83,7 @@ echo "XONG"
 EOF
 ```
 
-**Đúng khi:** in `34 passed`, `N/N gold rules pass` với N là số nhãn của bạn, hai dòng `gold-ok` và `readme`, rồi
+**Đúng khi:** in `36 passed`, `N/N gold rules pass` với N là số nhãn của bạn, hai dòng `gold-ok` và `readme`, rồi
 `main -> main` và `XONG`. Nếu in `DỪNG` hoặc dừng giữa chừng mà không có `XONG`, chưa có gì bị đẩy lên GitHub: gửi
 lại log trước khi làm tiếp.
 
@@ -812,7 +813,7 @@ echo "Số dòng còn [X]: $(grep -c '\[X\]' README.md)"
 make test lint check-gold 2>&1 | grep -E "passed|failed|All checks|gold rules"
 ```
 
-**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `34 passed` (hoặc `33 passed, 1 skipped`),
+**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `36 passed` (hoặc `35 passed, 1 skipped`),
 `All checks passed!`, `N/N gold rules pass`.
 
 **Nếu lỗi:** còn `[X]` thì xem bước nào chưa làm: dòng Precision là bước 7, dòng Người trả lời là bước 10. Lint báo
@@ -936,7 +937,7 @@ của AI. Ôn `reports/ghi_chu_lan_thu.md` và bước 11 trước phỏng vấn
 | `0 tool calls` trong kết quả extract | Mô hình không đọc code | Dán lại khối đang làm; một chương trình lỗi 3 lần thì xem 5.9 |
 | `404` hoặc `model not found` | `LLM_MODEL` khác tên mô hình đã tải | Chạy 5.6, chép đúng tên trong JSON vào `.env` |
 | `WARNING: a request used ... context tokens` | Hội thoại chạm giới hạn cửa sổ | Bước 6.4 |
-| `did not return valid JSON` | Mô hình trả sai định dạng | Chạy lại; vẫn lỗi thì xem 5.9 |
+| `did not return valid JSON` | Mô hình trả sai định dạng | Repo phải là bản zip mới nhất (5.0). Vẫn lỗi thì gửi mình dòng `last error: ...` |
 | Lệnh chạy rất lâu, không in gì | Mô hình đang chạy trên T4, hoặc Colab treo | Chờ 5 phút; xem ô 8 của notebook |
 | Colab: `Cannot connect to GPU backend` | Hết GPU miễn phí | Chờ vài giờ; trong lúc chờ làm trước bước 11 |
 | Chỉ khi dùng API dự phòng: `401` | Khóa sai | Sửa `LLM_API_KEY`, không để dấu cách hay dấu nháy |

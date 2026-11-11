@@ -4,6 +4,7 @@ pyproject.toml
 src/legacylens/agent.py
 src/legacylens/citations.py
 src/legacylens/cli.py
+src/legacylens/coerce.py
 src/legacylens/docgen.py
 src/legacylens/evaluate.py
 src/legacylens/index.py
