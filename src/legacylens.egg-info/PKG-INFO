@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: legacylens
+Version: 0.1.0
+Summary: Read COBOL, extract business rules with line-level citations, write design docs.
+License: MIT
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: networkx>=3.2
+Requires-Dist: pydantic>=2.6
+Requires-Dist: openai>=1.40
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: ruff>=0.5; extra == "dev"
+Provides-Extra: ui
+Requires-Dist: streamlit>=1.35; extra == "ui"
+Dynamic: license-file
