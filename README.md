@@ -89,7 +89,7 @@ Trích business rule (chỉ điền số tự đo, xem `reports/eval.md`):
 
 | Chỉ số | Giá trị |
 | --- | --- |
-| Nhãn tay | 49 rule, 5 chương trình (CBTRN02C, COSGN00C, COTRN02C, CBACT04C, COBIL00C) |
+| Nhãn tay | 50 rule, 5 chương trình (CBTRN02C, COSGN00C, COTRN02C, CBACT04C, COBIL00C) |
 | Precision / Recall / F1 | [X] / [X] / [X] |
 | Trích dẫn qua kiểm tra | [X]% |
 | Token và thời gian mỗi chương trình | [X] token, [X] giây (mô hình [X]) |
@@ -98,7 +98,7 @@ Trích business rule (chỉ điền số tự đo, xem `reports/eval.md`):
 
 ## Cách chấm
 
-- Nhãn tay ở `gold/rules.jsonl` (49 rule), cùng schema với đầu ra. Mỗi nhãn đã qua `make check-gold` và được đọc
+- Nhãn tay ở `gold/rules.jsonl` (50 rule), cùng schema với đầu ra. Nhãn do AI soạn nháp; mỗi nhãn đã qua `make check-gold` và được tôi đọc
   lại đối chiếu với mã nguồn.
 - Câu hỏi onboarding ở `onboarding/questions.jsonl`: mỗi câu có nhóm từ khóa bắt buộc và vùng dòng mong đợi.
   Câu trả lời đúng khi chứa đủ từ khóa và có trích dẫn chạm vùng đó. `onboarding/BAI_KIEM_TRA.md` là phiếu cho
