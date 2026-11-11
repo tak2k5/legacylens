@@ -47,36 +47,43 @@ Mất khoảng 30 phút cho lần đầu, kể cả 5.0. Những lần sau chỉ
 ### 5.0. Cập nhật repo lên bản mới nhất
 
 Bản zip mới có thêm lệnh `make readme` (tự chép số vào README) và cách thử prompt không cần sửa code, dùng ở bước 7
-và 8. Nhãn bạn đã duyệt được giữ nguyên.
+và 8. Nhãn bạn đã duyệt và README đã sửa ở 4.9 được giữ nguyên.
 
-**Làm:** tải `legacylens.zip` mới nhất về máy, kéo thả vào thư mục gốc của repo trong Codespace (ngang hàng
-`Makefile`). Rồi dán:
+**Làm:**
+
+1. Tải `legacylens.zip` mới nhất về máy, kéo thả vào thư mục gốc của repo trong Codespace (ngang hàng `Makefile`).
+2. Kiểm tra zip đã nằm đúng chỗ:
 
 ```bash
-cd /workspaces/legacylens
-git add -A && git commit -qm "Lưu trước khi cập nhật" ; git push
-rm -rf /tmp/gold_cua_toi && cp -a gold /tmp/gold_cua_toi
-cp README.md /tmp/README_cua_toi.md
-rm -rf /tmp/ll && unzip -q legacylens.zip -d /tmp/ll && rm legacylens.zip
-git ls-files -z | xargs -0 rm -f
-cp -a /tmp/ll/legacylens/. .
-cp -a /tmp/gold_cua_toi/. gold/
-cp /tmp/README_cua_toi.md README.md
-sed -i 's/# 3[0-9] test offline/# 34 test offline/' README.md
-rm -rf /tmp/ll
-make install > /dev/null && make test && make check-gold | tail -1
-make help | grep -E "readme|gold-ok"
-git add -A && git commit -qm "Cập nhật bản mới: make readme, thử prompt" && git push
+cd /workspaces/legacylens && ls -la legacylens.zip
 ```
 
-README của bạn (đã sửa số nhãn ở 4.9) cũng được giữ nguyên.
+   Phải in một dòng có `legacylens.zip`. Nếu báo `No such file`, kéo thả lại rồi kiểm tra lại.
+3. Dán cả khối. Khối tự dừng ngay ở lỗi đầu tiên (ví dụ thiếu zip) mà không xóa gì:
 
-**Đúng khi:**
+```bash
+bash -e <<'EOF'
+test -f legacylens.zip || { echo "DỪNG: chưa thấy legacylens.zip ở thư mục gốc. Kéo thả zip vào rồi dán lại khối này."; exit 1; }
+unzip -tq legacylens.zip > /dev/null
+git add -A; git commit -qm "Lưu trước khi cập nhật" || true
+rm -rf /tmp/gold_cua_toi /tmp/ll && cp -a gold /tmp/gold_cua_toi && cp README.md /tmp/README_cua_toi.md
+unzip -q legacylens.zip -d /tmp/ll && test -f /tmp/ll/legacylens/Makefile
+rm legacylens.zip
+git rm -r -q --cached data 2>/dev/null || true
+git ls-files -z | xargs -0 rm -f
+cp -a /tmp/ll/legacylens/. .
+cp -a /tmp/gold_cua_toi/. gold/ && cp /tmp/README_cua_toi.md README.md
+sed -i 's/# 3[0-9] test offline/# 34 test offline/' README.md
+make install > /dev/null && make test | tail -1 && make check-gold | tail -1
+make help | grep -E "readme|gold-ok"
+git add -A && git commit -qm "Cập nhật bản mới: make readme, thử prompt" && git push
+echo "XONG"
+EOF
+```
 
-- `make test` in `34 passed`.
-- `check-gold` in `N/N gold rules pass` với N là số nhãn của bạn.
-- Có hai dòng `readme` và `gold-ok`.
-- `git push` kết thúc bằng `main -> main`.
+**Đúng khi:** in `34 passed`, `N/N gold rules pass` với N là số nhãn của bạn, hai dòng `gold-ok` và `readme`, rồi
+`main -> main` và `XONG`. Nếu in `DỪNG` hoặc dừng giữa chừng mà không có `XONG`, chưa có gì bị đẩy lên GitHub: gửi
+lại log trước khi làm tiếp.
 
 ### 5.1. Lấy file notebook về máy
 
@@ -642,8 +649,8 @@ git status --short
 ```bash
 cd /workspaces/legacylens
 rm -rf /tmp/gold_cua_toi && cp -a gold /tmp/gold_cua_toi
-rm -rf /tmp/ll && unzip -q legacylens.zip -d /tmp/ll && rm legacylens.zip
-git ls-files -z | xargs -0 rm -f
+test -f legacylens.zip && rm -rf /tmp/ll && unzip -q legacylens.zip -d /tmp/ll && test -f /tmp/ll/legacylens/Makefile && rm legacylens.zip && \
+git ls-files -z -- . ':!:data' | xargs -0 rm -f
 cp -a /tmp/ll/legacylens/. .
 cp -a /tmp/gold_cua_toi/. gold/
 sed -i "s/<ten-github>/$GITHUB_USER/" README.md
