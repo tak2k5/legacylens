@@ -5,9 +5,9 @@ Model: qwen2.5:7b-instruct
 | Questions | 20 |
 | Correct (keywords + citation) | 2 (10.0%) |
 | Answers citing the expected lines | 0.0% |
-| Citations that pass the source check | 79.3% |
-| Average tokens per question | 4104 |
-| Average seconds per question | 8.77 |
+| Citations that pass the source check | 81.2% |
+| Average tokens per question | 4808 |
+| Average seconds per question | 10.12 |
 
 | Question | Correct | Keywords | Citation hit |
 | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ Model: qwen2.5:7b-instruct
 | Q09 | no | 0/2 | False |
 | Q10 | no | 0/1 | False |
 | Q11 | no | 1/2 | False |
-| Q12 | no | 0/0 | False |
+| Q12 | no | 0/1 | False |
 | Q13 | no | 0/1 | False |
 | Q14 | yes | 3/3 |  |
 | Q15 | no | 1/2 |  |

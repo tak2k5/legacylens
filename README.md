@@ -90,11 +90,17 @@ Trích business rule (chỉ điền số tự đo, xem `reports/eval.md`):
 | Chỉ số | Giá trị |
 | --- | --- |
 | Nhãn tay | 50 rule, 5 chương trình (CBTRN02C, COSGN00C, COTRN02C, CBACT04C, COBIL00C) |
-| Precision / Recall / F1 | [X] / [X] / [X] |
-| Trích dẫn qua kiểm tra | [X]% |
-| Token và thời gian mỗi chương trình | [X] token, [X] giây (mô hình [X]) |
-| Agent trả lời đúng 20 câu onboarding (`make eval-qa`) | [X]/20, trích đúng dòng [X]% |
+| Precision / Recall / F1 | 20.0% / 6.0% / 9.2% |
+| Trích dẫn qua kiểm tra | 93.3% |
+| Token và thời gian mỗi chương trình | 22959 token, 299.6 giây (mô hình qwen2.5:7b-instruct) |
+| Agent trả lời đúng 20 câu onboarding (`make eval-qa`) | 2/20, trích đúng dòng 0.0% (mô hình qwen2.5:7b-instruct) |
 | Người trả lời 20 câu, chỉ đọc code / dùng LegacyLens | [X] phút / [X] phút |
+
+### Các lần thử
+
+| Lần | Thay đổi | Mô hình | P / R / F1 | Token mỗi chương trình |
+| --- | --- | --- | --- | --- |
+| 1 | Bản đầu, prompt gốc | qwen2.5:7b-instruct | 20.0% / 6.0% / 9.2% | 22959 |
 
 ## Cách chấm
 

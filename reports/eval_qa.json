@@ -4,9 +4,9 @@
     "correct": 2,
     "accuracy": 0.1,
     "citation_hit_rate": 0.0,
-    "citation_validity": 0.793,
-    "avg_tokens": 4104,
-    "avg_seconds": 8.77,
+    "citation_validity": 0.812,
+    "avg_tokens": 4808,
+    "avg_seconds": 10.12,
     "model": "qwen2.5:7b-instruct"
   },
   "rows": [
@@ -174,11 +174,21 @@
     {
       "id": "Q12",
       "keywords_ok": false,
-      "keyword_groups_matched": "0/0",
+      "keyword_groups_matched": "0/1",
       "citation_hit": false,
       "correct": false,
-      "citations_valid": null,
-      "error": "Connection error."
+      "citations_valid": 1.0,
+      "tokens": 14063,
+      "seconds": 27.01,
+      "tool_calls": 8,
+      "answer": "The format for typing the amount when adding a transaction in CBTRN02C is not explicitly mentioned in the provided code or comments. The program structure and initial lines do not contain specific details about the amount field. Further review of the program's paragraphs and the included copybooks might be necessary to determine the exact format.",
+      "citations": [
+        {
+          "program": "CBTRN02C",
+          "start_line": 1,
+          "end_line": 40
+        }
+      ]
     },
     {
       "id": "Q13",
