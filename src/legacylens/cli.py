@@ -16,6 +16,7 @@ from .index import Index
 from .schema import BusinessRule, RuleSet
 from .tools import Toolbox
 
+ASK_MODE_HELP = "agent: the model searches on its own; guided: static context (catalogue, outline, callers) is given"
 DEFAULT_SRC = "data/carddemo/app"
 
 
@@ -101,7 +102,9 @@ def cmd_doc(args) -> None:
         rule_file = Path(args.rules) / f"{prog.program_id}.json"
         if rule_file.exists():
             rules = RuleSet.model_validate_json(rule_file.read_text(encoding="utf-8"))
-            checks = [verify(r, idx) for r in rules.rules]
+            checks = [verify(r, idx) for r in rules.rules]  # checked on the English text the model wrote
+            if args.translate and args.lang != "en" and rules.rules:
+                rules = _translated(rules, rule_file, args.lang, idx)
         path = out / f"{prog.program_id}.{args.lang}.md"
         path.write_text(
             render(idx, prog.program_id, rules, checks, lang=args.lang, link_base=args.link_base), encoding="utf-8"
@@ -109,11 +112,37 @@ def cmd_doc(args) -> None:
         print(f"wrote {path}")
 
 
+def _translated(rules: RuleSet, rule_file: Path, lang: str, idx) -> RuleSet:
+    """Translation cached next to the rules (out/rules_vi/X.json), redone only when the rules change."""
+    import hashlib
+
+    from .agent import Agent
+
+    source = rule_file.read_bytes()
+    digest = hashlib.sha256(source).hexdigest()[:16]
+    cache = rule_file.parent.with_name(f"{rule_file.parent.name}_{lang}") / rule_file.name
+    if cache.exists():
+        saved = json.loads(cache.read_text(encoding="utf-8"))
+        if saved.get("source") == digest:
+            return RuleSet.model_validate(saved["rules"])
+    try:
+        done, ok = Agent(idx).translate(rules, lang)
+    except Exception as exc:  # Colab gone, tunnel closed: keep the English rules, the document is still written
+        print(f"{rules.program}: translation to {lang} failed ({type(exc).__name__}), the rules stay in English")
+        return rules
+    if not ok:
+        print(f"{rules.program}: translation to {lang} failed, the rules stay in English (run again to retry)")
+        return rules
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps({"source": digest, "rules": json.loads(done.model_dump_json())}, ensure_ascii=False))
+    return done
+
+
 def cmd_ask(args) -> None:
     from .agent import Agent
 
     agent = Agent(_index(args), model=args.model, max_steps=args.max_steps)
-    answer, checks, trace = agent.ask(args.question)
+    answer, checks, trace = agent.ask(args.question, mode=getattr(args, "mode", "guided"))
     print(answer.answer)
     for c, chk in zip(answer.citations, checks, strict=True):
         print(
@@ -268,7 +297,9 @@ def cmd_readme(args) -> None:
             "people": args.people,
         }
     try:
-        text, changed = fill(path.read_text(encoding="utf-8"), Path(args.reports), human, args.attempt, args.video)
+        text, changed = fill(
+            path.read_text(encoding="utf-8"), Path(args.reports), human, args.attempt, args.video, args.qa_attempt
+        )
     except ValueError as exc:
         sys.exit(f"README not changed: {exc}")
     path.write_text(text, encoding="utf-8")
@@ -305,6 +336,7 @@ def cmd_eval_qa(args) -> None:
     from .qa import to_markdown as qa_markdown
 
     agent = Agent(_index(args), model=args.model, max_steps=args.max_steps)
+    mode = getattr(args, "mode", "agent")
     questions = load_questions(args.questions)
     if args.limit:
         questions = questions[: args.limit]
@@ -312,8 +344,12 @@ def cmd_eval_qa(args) -> None:
 
     unreachable = (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError)
     keep: dict[str, dict] = {}
-    if args.retry_unreachable:  # re-ask only the questions that never reached the model, keep the other answers
+    if getattr(
+        args, "retry_unreachable", False
+    ):  # re-ask only the questions that never reached the model, keep the other answers
         old = json.loads(Path(args.out).with_suffix(".json").read_text())
+        if old["summary"].get("mode", "agent") != mode:
+            sys.exit(f"the saved answers used --mode {old['summary'].get('mode', 'agent')}: add the same --mode")
         if old["summary"].get("model") != agent.model:
             sys.exit(
                 f"the saved answers come from {old['summary'].get('model')}, not {agent.model}: run without the flag"
@@ -326,7 +362,7 @@ def cmd_eval_qa(args) -> None:
             rows.append(keep[q.id])
             continue
         try:
-            answer, checks, trace = agent.ask(q.question)
+            answer, checks, trace = agent.ask(q.question, mode=mode)
             row = dump_row(q, answer, checks, trace.as_dict())
             down = 0
         except Exception as exc:  # count as wrong, keep going
@@ -347,7 +383,7 @@ def cmd_eval_qa(args) -> None:
             }
         rows.append(row)
         print(f"{q.id}: {'ok' if row['correct'] else 'wrong'}")
-    summary = summarize(rows) | {"model": agent.model}
+    summary = summarize(rows) | {"model": agent.model, "mode": mode}
     md = qa_markdown(summary, rows)
     print(md)
     out = Path(args.out)
@@ -356,8 +392,11 @@ def cmd_eval_qa(args) -> None:
     out.with_suffix(".json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=2), encoding="utf-8")
 
 
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(prog="legacylens", description="Read COBOL, extract business rules with citations.")
+def build_parser() -> argparse.ArgumentParser:
+    # allow_abbrev=False everywhere: otherwise `eval-qa --mode` would be silently read as `--model`
+    ap = argparse.ArgumentParser(
+        prog="legacylens", description="Read COBOL, extract business rules with citations.", allow_abbrev=False
+    )
     ap.add_argument("--src", default=DEFAULT_SRC, help="COBOL source tree (default: %(default)s)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -388,6 +427,7 @@ def main(argv: list[str] | None = None) -> None:
             )
         else:
             s.add_argument("question")
+            s.add_argument("--mode", default="guided", choices=["agent", "guided"], help=ASK_MODE_HELP)
         s.add_argument("--model", default=None, help="Defaults to $LLM_MODEL")
         s.add_argument("--max-steps", type=int, default=16)
         s.set_defaults(fn=fn)
@@ -395,6 +435,7 @@ def main(argv: list[str] | None = None) -> None:
     d = sub.add_parser("doc", help="Write design documents (Markdown)")
     d.add_argument("program", nargs="+", help="Program ids, or ALL")
     d.add_argument("--rules", default="out/rules")
+    d.add_argument("--translate", action="store_true", help="Translate the rule text with the LLM (cached)")
     d.add_argument("--out", default="docs/generated")
     d.add_argument("--lang", default="vi", choices=["vi", "en", "ja"])
     d.add_argument(  # data/ is not on GitHub: link to CardDemo at the pinned commit, so links work in the repo
@@ -425,6 +466,7 @@ def main(argv: list[str] | None = None) -> None:
     rd.add_argument("--reports", default="reports")
     rd.add_argument("--attempt", default=None, help="Also add a row to the attempts table, with this description")
     rd.add_argument("--video", default=None)
+    rd.add_argument("--qa-attempt", default=None, help="Add a row to the question-answering attempts table")
     for name in ("read-min", "tool-min", "read-ok", "tool-ok", "people"):
         rd.add_argument(f"--{name}", default=None)
     rd.set_defaults(fn=cmd_readme)
@@ -440,11 +482,17 @@ def main(argv: list[str] | None = None) -> None:
     q.add_argument(
         "--retry-unreachable", action="store_true", help="re-ask only questions that failed to reach the model"
     )
+    q.add_argument("--mode", default="agent", choices=["agent", "guided"], help=ASK_MODE_HELP)
     q.add_argument("--model", default=None)
     q.add_argument("--max-steps", type=int, default=12)
     q.set_defaults(fn=cmd_eval_qa)
+    for p in sub.choices.values():
+        p.allow_abbrev = False
+    return ap
 
-    args = ap.parse_args(argv)
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
     try:
         args.fn(args)
     except RuntimeError as exc:  # e.g. no LLM endpoint configured: a clear message, not a traceback

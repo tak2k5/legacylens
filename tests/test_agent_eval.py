@@ -365,7 +365,7 @@ def test_readme_fill(tmp_path):
 
     readme = (Path(__file__).parent.parent / "README.md").read_text()
     # the real README may already hold attempts from make readme; start from the template table
-    readme = re.sub(r"### Các lần thử\n\n(?:\|.*\n)+\n?", "", readme)
+    readme = re.sub(r"### Các lần thử[^\n]*\n\n(?:\|.*\n)+\n?", "", readme)  # both attempt tables
     rep = tmp_path
     (rep / "eval.json").write_text(
         json.dumps({"programs": ["A"], "precision": 0.5, "recall": 0.25, "f1": 1 / 3, "citation_validity": 0.9})
@@ -393,7 +393,7 @@ def test_readme_fill(tmp_path):
     assert "| 1 | Bản đầu | qwen | 50.0% / 25.0% / 33.3% | 100 |" in text
     assert "[X]" not in text and "Video demo 2 phút: https://youtu.be/x" in text
     text2, _ = fill(text, rep, attempt="Lần hai")
-    assert "| 2 | Lần hai |" in text2 and text2.count("### Các lần thử") == 1
+    assert "| 2 | Lần hai |" in text2 and text2.count("### Các lần thử\n") == 1
 
 
 def test_extra_rules_reach_the_prompt(idx, monkeypatch):
@@ -520,3 +520,96 @@ def test_unreachable_rows_are_detected():
     assert _unreachable_row({"error": "x", "error_type": "unreachable"})
     assert not _unreachable_row({"error": "agent did not return valid JSON", "error_type": "RuntimeError"})
     assert not _unreachable_row({"correct": True})
+
+
+def test_guided_ask_gives_static_context_and_refuses_early_give_up(idx):
+    give_up = {"answer": "The limit is not found in the code base.", "citations": []}
+    good = {
+        "answer": "Payments above 5000 are flagged.",
+        "citations": [{"program": "PAYCHK", "start_line": 27, "end_line": 30}],
+    }
+    client = FakeClient([read(0), text_msg(json.dumps(give_up)), read(1), text_msg(json.dumps(good))])
+    answer, checks, trace = Agent(idx, client=client, model="fake").ask("What limit does PAYCHK check?", mode="guided")
+    first = client.requests[0][1]["content"]
+    assert "Static analysis" in first and "PAYCHK" in first and "1000-CHECK-AMOUNT" in first
+    assert "Do not conclude it is absent" in client.requests[2][-1]["content"]
+    assert "5000" in answer.answer and checks[0]["valid"] and trace.nudges == 1
+    plain = FakeClient([read(0), text_msg(json.dumps(give_up))])
+    answer, _, _ = Agent(idx, client=plain, model="fake").ask("What limit does PAYCHK check?")
+    assert "not found" in answer.answer and "Static analysis" not in plain.requests[0][1]["content"]
+
+
+def test_readme_records_question_answering_attempts(tmp_path):
+    from legacylens.readme import fill
+
+    text = "# T\n\n| Agent trả lời đúng 20 câu onboarding | [X] |\n\n## Cách chấm\n"
+    (tmp_path / "eval_qa.json").write_text(
+        json.dumps({"summary": {"correct": 2, "questions": 20, "citation_hit_rate": 0.1, "model": "q7"}})
+    )
+    text, changed = fill(text, tmp_path, qa_attempt="Agent gốc")
+    (tmp_path / "eval_qa.json").write_text(
+        json.dumps({"summary": {"correct": 9, "questions": 20, "citation_hit_rate": 0.5, "model": "q7"}})
+    )
+    text, _ = fill(text, tmp_path, qa_attempt="Có ngữ cảnh tĩnh")
+    assert "| 1 | Agent gốc | q7 | 2/20 | 10.0% |" in text and "| 2 | Có ngữ cảnh tĩnh | q7 | 9/20 | 50.0% |" in text
+    assert "[X]" in text  # an attempt never touches the main table
+
+
+def test_translate_keeps_codes_and_falls_back_to_english(idx):
+    rs = RuleSet(program="PAYCHK", purpose="Checks payments.", rules=[BusinessRule.model_validate(RULE)])
+    vi = {
+        "purpose": "Kiểm tra thanh toán.",
+        "rules": [
+            {
+                "id": "PAYCHK-R1",
+                "summary": "Thanh toán trên 5000 bị gắn cờ.",
+                "condition": "PAY-AMT > 5000",
+                "outcome": "WS-REASON = 200",
+            }
+        ],
+    }
+    done, ok = Agent(idx, client=FakeClient([text_msg(json.dumps(vi, ensure_ascii=False))]), model="f").translate(
+        rs, "vi"
+    )
+    assert ok and done.rules[0].summary.startswith("Thanh toán") and done.rules[0].citations == rs.rules[0].citations
+    assert done.purpose == "Kiểm tra thanh toán."
+    same, ok = Agent(idx, client=FakeClient([text_msg("xin lỗi")]), model="f").translate(rs, "ja")
+    assert not ok and same is rs
+
+
+def test_translate_sends_long_rule_sets_in_batches(idx):
+    base = BusinessRule.model_validate(RULE)
+    rs = RuleSet(
+        program="PAYCHK",
+        purpose="Checks payments.",
+        rules=[base.model_copy(update={"id": f"PAYCHK-R{i}"}) for i in range(10)],
+    )
+    replies = [
+        {"purpose": "P", "rules": [{"id": f"PAYCHK-R{i}", "summary": f"S{i}"} for i in range(8)]},
+        {"rules": [{"id": f"PAYCHK-R{i}", "summary": f"S{i}"} for i in range(8, 10)]},
+    ]
+    client = FakeClient([text_msg(json.dumps(r)) for r in replies])
+    done, ok = Agent(idx, client=client, model="f").translate(rs, "ja")
+    assert ok and [r.summary for r in done.rules] == [f"S{i}" for i in range(10)] and done.purpose == "P"
+    assert done.rules[9].condition == base.condition  # a value the model left out keeps the English text
+
+
+def test_program_catalogue_reads_header_function_line(idx):
+    from legacylens.tools import Toolbox
+
+    cat = Toolbox(idx).program_catalogue()
+    assert cat.count("\n") == len(idx.programs) - 1 and "PAYCHK (" in cat
+
+
+def test_cli_modes_are_not_read_as_model():
+    from legacylens.cli import build_parser
+
+    ap = build_parser()
+    a = ap.parse_args(["eval-qa", "--mode", "guided"])
+    assert a.mode == "guided" and a.model is None
+    assert (
+        ap.parse_args(["ask", "q?"]).mode == "guided"
+        and ap.parse_args(["extract", "X", "--mode", "chunks"]).mode == "chunks"
+    )
+    with pytest.raises(SystemExit):
+        ap.parse_args(["eval-qa", "--mod", "x"])  # no silent abbreviation

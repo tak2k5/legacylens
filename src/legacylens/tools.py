@@ -95,6 +95,27 @@ class Toolbox:
             return f"ERROR: {type(exc).__name__}: {exc}"
 
     # ---------- tools ----------
+    def program_catalogue(self) -> str:
+        """One line per program: kind and the 'Function:' line of its header comment (CardDemo convention)."""
+        out = []
+        for name, prog in sorted(self.index.programs.items()):
+            lines = self.index.read_lines(prog.path, 1, 40)
+            what = ""
+            for i, (_, text) in enumerate(lines):
+                m = re.search(r"\*\s*Function\s*:\s*(.*)", text, re.I)
+                if not m:
+                    continue
+                what = m.group(1)
+                for _, more in lines[i + 1 : i + 3]:  # wrapped description
+                    body = more[7:].strip(" *") if len(more) > 6 and more[6] == "*" else ""
+                    if not body or ":" in body:
+                        break
+                    what += " " + body
+                break
+            what = re.sub(r"\s*\*?\s*\d{8}$", "", what).strip(" *")
+            out.append(f"{name} ({prog.kind}): {what or '-'}")
+        return "\n".join(out)
+
     def program_outline(self, program: str) -> str:
         p = self.index.program(program)
         out = [f"PROGRAM {p.program_id} ({p.kind}, {p.loc} lines of code, file {p.path.split('/')[-1]})"]

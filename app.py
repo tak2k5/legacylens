@@ -46,7 +46,11 @@ if rule_file.exists():
     checks = [verify(r, idx) for r in rules.rules]
 
 with tab_doc:
-    st.markdown(render(idx, program, rules, checks, lang=lang))
+    shown = rules
+    cached = RULES.with_name(f"{RULES.name}_{lang}") / f"{program}.json"  # written by make doc ARGS=--translate
+    if rules and lang != "en" and cached.exists():
+        shown = RuleSet.model_validate(json.loads(cached.read_text(encoding="utf-8"))["rules"])
+    st.markdown(render(idx, program, shown, checks, lang=lang))
 
 with tab_outline:
     st.code(Toolbox(idx).program_outline(program), language="text")
@@ -60,7 +64,7 @@ with tab_ask:
 
         try:
             with st.spinner("Reading the code..."):
-                answer, cite_checks, trace = Agent(idx).ask(question)
+                answer, cite_checks, trace = Agent(idx).ask(question, mode=os.getenv("LEGACYLENS_ASK_MODE", "guided"))
         except Exception as exc:  # missing key, rate limit, model gave no JSON
             st.error(f"{type(exc).__name__}: {str(exc)[:400]}")
             st.stop()

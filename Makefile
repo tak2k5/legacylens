@@ -51,13 +51,13 @@ ask:           ## Hỏi một câu (cần khóa LLM). Ví dụ: make ask Q="Mậ
 extract:       ## Trích business rule bằng agent (cần khóa LLM). Ví dụ: make extract PROGS="CBTRN02C COSGN00C"
 	$(LOADENV) $(CLI) extract $(PROGS) --out out/rules $(ARGS)
 doc:           ## Sinh tài liệu thiết kế tiếng Việt và tiếng Nhật -> docs/generated/
-	$(CLI) doc $(PROGS) --lang vi && $(CLI) doc $(PROGS) --lang ja
+	$(LOADENV) $(CLI) doc $(PROGS) --lang vi $(ARGS) && $(CLI) doc $(PROGS) --lang ja $(ARGS)
 eval:          ## Chấm điểm rule trích ra so với nhãn tay -> reports/eval.md
 	$(CLI) eval --gold gold/rules.jsonl --pred out/rules --out reports/eval.md
 eval-qa:       ## Agent trả lời 20 câu onboarding, chấm tự động (cần khóa LLM) -> reports/eval_qa.md
 	$(LOADENV) $(CLI) eval-qa $(ARGS)
 readme:        ## Chép số đo vào bảng Kết quả của README. Thêm NOTE="..." để ghi một lần thử, VIDEO=link để thêm video
-	$(CLI) readme $(if $(NOTE),--attempt "$(NOTE)") $(if $(VIDEO),--video "$(VIDEO)") \
+	$(CLI) readme $(if $(NOTE),--attempt "$(NOTE)") $(if $(QA_NOTE),--qa-attempt "$(QA_NOTE)") $(if $(VIDEO),--video "$(VIDEO)") \
 	  $(if $(READ_MIN),--read-min "$(READ_MIN)" --tool-min "$(TOOL_MIN)" --read-ok "$(READ_OK)" --tool-ok "$(TOOL_OK)" --people "$(PEOPLE)")
 ui:            ## Giao diện hỏi đáp (Streamlit)
 	$(LOADENV) PYTHONPATH=src LEGACYLENS_SRC=$(SRC) streamlit run app.py --server.headless true

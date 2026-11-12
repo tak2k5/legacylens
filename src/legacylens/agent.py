@@ -60,10 +60,33 @@ For each rule cite the tight range that implements it, usually 2 to 10 lines, us
 condition and outcome name the values found in the code (codes, messages, limits). fields lists the COBOL data
 names the rule reads or sets.
 
-Reply with ONLY this JSON, no prose and no code fence. If the lines hold no business rule, reply {{"rules": []}}.
-{{"rules": [{{"kind": "one of {kinds}", "summary": "...", "condition": "...", "outcome": "...",
-"fields": ["..."], "citations": [{{"start_line": 0, "end_line": 0}}]}}]}}"""
+Example. Lines shown:
+  40:     IF ORD-QTY = ZERO
+  41:        MOVE 'QUANTITY REQUIRED' TO WS-MSG
+  42:        MOVE 'Y' TO WS-ERR
+  43:     END-IF
+  44:     IF ORD-AMT > CUST-LIMIT
+  45:        MOVE 205 TO WS-REASON
+  46:        PERFORM 9000-REJECT
+  47:     ELSE
+  48:        COMPUTE CUST-BAL = CUST-BAL + ORD-AMT
+  49:     END-IF
+Answer:
+{{"rules": [
+ {{"kind": "validation", "summary": "An order needs a quantity.", "condition": "ORD-QTY = ZERO",
+  "outcome": "WS-MSG = 'QUANTITY REQUIRED', WS-ERR = 'Y'", "fields": ["ORD-QTY", "WS-MSG", "WS-ERR"],
+  "citations": [{{"start_line": 40, "end_line": 43}}]}},
+ {{"kind": "validation", "summary": "An order over the customer's limit is rejected.", "condition": "ORD-AMT > CUST-LIMIT",
+  "outcome": "WS-REASON = 205, PERFORM 9000-REJECT", "fields": ["ORD-AMT", "CUST-LIMIT", "WS-REASON"],
+  "citations": [{{"start_line": 44, "end_line": 46}}]}},
+ {{"kind": "calculation", "summary": "An accepted order is added to the customer balance.", "condition": "ORD-AMT <= CUST-LIMIT",
+  "outcome": "CUST-BAL = CUST-BAL + ORD-AMT", "fields": ["CUST-BAL", "ORD-AMT"],
+  "citations": [{{"start_line": 47, "end_line": 48}}]}}]}}
 
+Reply with ONLY JSON like the example, no prose and no code fence. kind is one of {kinds}.
+If the lines hold no business rule, reply {{"rules": []}}."""
+
+TRANSLATE_BATCH = 8  # rules per translation call
 CHUNK_LINES = 60  # lines per request in chunked mode; long paragraphs are cut between top-level statements
 RE_DECISION = re.compile(r"\b(IF|EVALUATE|WHEN|COMPUTE|ADD|SUBTRACT|MULTIPLY|DIVIDE|XCTL|INVALID KEY|RETURN-CODE)\b")
 RE_PLUMBING = re.compile(r"(-OPEN|-CLOSE|DISPLAY-IO-STATUS|ABEND)", re.I)
@@ -74,6 +97,13 @@ SYSTEM_ASK = """You answer questions about a COBOL code base for an engineer who
 Use the tools to find evidence. Cite every claim with (program, start_line, end_line) of lines you read.
 If the code does not answer the question, say so. Reply with ONLY a JSON object matching this schema:
 {schema}"""
+
+GIVE_UP = re.compile(
+    r"not (found|mentioned|available|present|directly|explicitly|specified)|no (direct|explicit)|does not (appear|contain"
+    r"|mention)|cannot (find|determine)|further investigation|unable to",
+    re.I,
+)
+RE_NAME = re.compile(r"\b[A-Z][A-Z0-9]{3,}\b")
 
 
 @dataclass
@@ -188,6 +218,21 @@ class Agent:
         checks = [verify(rule, self.index) for rule in result.rules]
         return result, checks, trace
 
+    def _static_context(self, question: str) -> str:
+        parts = []
+        for name in dict.fromkeys(RE_NAME.findall(question.upper())):
+            if name in self.index.programs:
+                parts.append(self.tools.program_outline(name))
+                parts.append(f"Users of {name}:\n" + self.tools.who_uses(name))
+            elif name in self.index.copybooks:
+                parts.append(f"Users of copybook {name}:\n" + self.tools.who_uses(name))
+        if not parts:
+            return ""
+        return (
+            "\n\nStatic analysis of the names in the question (paragraph line ranges are exact; read the paragraphs "
+            "that match the question with read_paragraph before answering):\n\n" + "\n\n".join(parts)[:12000]
+        )
+
     def chunks(self, program: str) -> list[tuple[str, int, int]]:
         """Paragraphs that hold a decision, cut into pieces of at most CHUNK_LINES lines. Static analysis picks
         what to read, so a small model only has to explain the lines in front of it."""
@@ -273,6 +318,50 @@ class Agent:
         result = RuleSet(program=pid, purpose=purpose, rules=rules)
         return result, [verify(rule, self.index) for rule in result.rules], trace
 
+    def translate(self, rules: RuleSet, lang: str) -> tuple[RuleSet, bool]:
+        """Translate purpose, summary, condition and outcome for a design document. Ids, kinds, fields and
+        citations are kept. Returns (rules, True) on success, (the English rules, False) if a reply is unusable.
+        Sent in small batches: a 7B model on an 8K context cannot write 30 rules in Japanese in one reply."""
+        language = LANGUAGES[lang]
+        system = (
+            f"Translate the text values of this JSON into {language} for a software design document. "
+            "Keep every COBOL data name, paragraph name, program name, code, number and quoted message exactly as "
+            "it is. Keep the keys and the ids. Reply with ONLY the JSON."
+        )
+        done: dict[str, dict] = {}
+        purpose = rules.purpose
+        for start in range(0, max(len(rules.rules), 1), TRANSLATE_BATCH):
+            batch = rules.rules[start : start + TRANSLATE_BATCH]
+            items = [{"id": r.id, "summary": r.summary, "condition": r.condition, "outcome": r.outcome} for r in batch]
+            body = {"purpose": rules.purpose, "rules": items} if start == 0 else {"rules": items}
+            messages = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": json.dumps(body, ensure_ascii=False)},
+            ]
+            msg, _ = self._complete(messages, Trace(), tools=False)
+            text = re.sub(r"<think>.*?</think>", "", msg.content or "", flags=re.S).strip().strip("`")
+            text = text[text.find("{") : text.rfind("}") + 1]
+            try:
+                data = loads_lenient(text)
+                got = {str(x.get("id")): x for x in data.get("rules", []) if isinstance(x, dict)}
+            except (json.JSONDecodeError, AttributeError):
+                return rules, False
+            if set(got) != {r.id for r in batch}:
+                return rules, False
+            done |= got
+            if start == 0 and isinstance(data.get("purpose"), str):
+                purpose = data["purpose"]
+        out = [
+            r.model_copy(
+                update={
+                    k: (done[r.id].get(k) if isinstance(done[r.id].get(k), str) else getattr(r, k))
+                    for k in ("summary", "condition", "outcome")
+                }
+            )
+            for r in rules.rules
+        ]
+        return rules.model_copy(update={"rules": out, "purpose": purpose}), True
+
     def _purpose(self, pid: str, language: str, trace: Trace) -> str:
         trace.steps += 1
         messages = [
@@ -286,18 +375,31 @@ class Agent:
         msg, _ = self._complete(messages, trace, tools=False)
         return re.sub(r"<think>.*?</think>", "", msg.content or "", flags=re.S).strip()[:600]
 
-    def ask(self, question: str) -> tuple[Answer, list[dict], Trace]:
+    def ask(self, question: str, mode: str = "agent") -> tuple[Answer, list[dict], Trace]:
+        """mode agent: the model starts from the list of programs. mode guided: static analysis first hands it the
+        outline and the users of every program or copybook named in the question, and an answer that gives up
+        ("not found") after little reading is sent back once to read more."""
         system = SYSTEM_ASK.format(schema=json.dumps(Answer.model_json_schema()))
         programs = ", ".join(sorted(self.index.programs))
-        result, trace = self._run(
-            system, f"Programs in the code base: {programs}\n\nQuestion: {question}", Answer, min_tool_calls=1
-        )
+        user = f"Programs in the code base: {programs}\n\nQuestion: {question}"
+        if mode == "guided":
+            user = (
+                f"Programs in the code base and what their header says they do:\n{self.tools.program_catalogue()}"
+                f"\n\nQuestion: {question}{self._static_context(question)}"
+            )
+        result, trace = self._run(system, user, Answer, min_tool_calls=1, give_up_check=mode == "guided")
         checks = [verify(c, self.index) for c in result.citations]
         return result, checks, trace
 
     # ---------- loop ----------
     def _run(
-        self, system: str, user: str, model_cls: type[BaseModel], min_tool_calls: int = 0, program: str | None = None
+        self,
+        system: str,
+        user: str,
+        model_cls: type[BaseModel],
+        min_tool_calls: int = 0,
+        program: str | None = None,
+        give_up_check: bool = False,
     ) -> tuple[Any, Trace]:
         trace = Trace()
         guard = LoopGuard()
@@ -339,6 +441,25 @@ class Agent:
                     )
                     continue
                 parsed, error, dropped = _parse(final_text, model_cls, program)
+                if (
+                    give_up_check
+                    and parsed is not None
+                    and nudges < 3
+                    and trace.tool_calls < 4
+                    and GIVE_UP.search(getattr(parsed, "answer", "") or "")
+                ):
+                    nudges += 1
+                    trace.nudges += 1
+                    messages.append({"role": "assistant", "content": final_text})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": "Do not conclude it is absent yet. Read the paragraphs whose names match the "
+                            "question (read_paragraph), or search_code for a COBOL word or literal from the question, "
+                            "then answer with citations.",
+                        }
+                    )
+                    continue
                 if parsed is not None and (not dropped or trace.repairs >= 2):
                     trace.dropped_rules = dropped
                     trace.seconds = round(time.perf_counter() - t0, 2)

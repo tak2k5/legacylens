@@ -19,6 +19,27 @@ ATTEMPTS_HEADER = [
     "| --- | --- | --- | --- | --- |",
 ]
 
+QA_ATTEMPTS_HEADER = [
+    "### Các lần thử hỏi đáp",
+    "",
+    "| Lần | Thay đổi | Mô hình | Đúng / 20 câu | Trích đúng dòng |",
+    "| --- | --- | --- | --- | --- |",
+]
+
+
+def _add_attempt(lines: list[str], header: list[str], row: str) -> int:
+    """Append a row to the table under header (created before '## Cách chấm' if missing); return its number."""
+    if header[0] not in lines:
+        at = next(i for i, ln in enumerate(lines) if ln.startswith("## Cách chấm"))
+        lines[at:at] = [*header, ""]
+    start = lines.index(header[0])
+    end = start + 4
+    while end < len(lines) and lines[end].startswith("|"):
+        end += 1
+    n = end - (start + 4) + 1
+    lines.insert(end, f"| {n} | {row} |")
+    return n
+
 
 def _pct(x: float | None) -> str:
     return "n/a" if x is None else f"{x:.1%}"
@@ -42,7 +63,14 @@ def last_runs(runs_path: Path, programs: list[str] | None) -> list[dict]:
     return [r for p, r in latest.items() if programs is None or p in programs]
 
 
-def fill(text: str, reports: Path, human: dict | None = None, attempt: str | None = None, video: str | None = None):
+def fill(
+    text: str,
+    reports: Path,
+    human: dict | None = None,
+    attempt: str | None = None,
+    video: str | None = None,
+    qa_attempt: str | None = None,
+):
     lines = text.splitlines()
     changed: list[str] = []
     ev = json.loads((reports / "eval.json").read_text()) if (reports / "eval.json").exists() else None
@@ -52,7 +80,7 @@ def fill(text: str, reports: Path, human: dict | None = None, attempt: str | Non
     model = runs[-1]["model"] if runs else None
     tokens = round(sum(r["prompt_tokens"] + r["completion_tokens"] for r in runs) / len(runs)) if runs else None
     seconds = round(sum(r["seconds"] for r in runs) / len(runs), 1) if runs else None
-    main = attempt is None and human is None and video is None  # plain run: refresh the measured rows
+    main = attempt is None and human is None and video is None and qa_attempt is None  # plain run: measured rows
     if ev and main:
         _set_row(lines, "Precision / Recall / F1", f"{_pct(ev['precision'])} / {_pct(ev['recall'])} / {_pct(ev['f1'])}")
         _set_row(lines, "Trích dẫn qua kiểm tra", _pct(ev.get("citation_validity")))
@@ -83,17 +111,16 @@ def fill(text: str, reports: Path, human: dict | None = None, attempt: str | Non
     if attempt:
         if not ev:
             raise ValueError("run `make eval` before recording an attempt")
-        if "### Các lần thử" not in lines:
-            at = next(i for i, ln in enumerate(lines) if ln.startswith("## Cách chấm"))
-            lines[at:at] = [*ATTEMPTS_HEADER, ""]
-        start = lines.index("### Các lần thử")
-        end = start + 4
-        while end < len(lines) and lines[end].startswith("|"):
-            end += 1
-        n = end - (start + 4) + 1
         prf = f"{_pct(ev['precision'])} / {_pct(ev['recall'])} / {_pct(ev['f1'])}"
-        lines.insert(end, f"| {n} | {attempt} | {model} | {prf} | {tokens} |")
+        n = _add_attempt(lines, ATTEMPTS_HEADER, f"{attempt} | {model} | {prf} | {tokens}")
         changed.append(f"Lần thử {n}")
+    if qa_attempt:
+        if not qa_path.exists():
+            raise ValueError("run `make eval-qa` before recording a question-answering attempt")
+        qa = json.loads(qa_path.read_text())["summary"]
+        row = f"{qa_attempt} | {qa.get('model')} | {qa['correct']}/{qa['questions']} | {_pct(qa.get('citation_hit_rate'))}"
+        n = _add_attempt(lines, QA_ATTEMPTS_HEADER, row)
+        changed.append(f"Lần thử hỏi đáp {n}")
     if video:
         lines = [ln for ln in lines if not ln.startswith("Video demo 2 phút:")]
         title = next(i for i, ln in enumerate(lines) if ln.startswith("# "))
