@@ -1,0 +1,490 @@
+{
+  "summary": {
+    "questions": 20,
+    "correct": 8,
+    "accuracy": 0.4,
+    "citation_hit_rate": 0.375,
+    "citation_validity": 1.0,
+    "avg_tokens": 12736,
+    "avg_seconds": 63.76,
+    "model": "qwen2.5:7b-instruct",
+    "mode": "guided"
+  },
+  "rows": [
+    {
+      "id": "Q01",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/0",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "error": "agent did not return valid JSON in 5 steps (5 tool calls, finish_reason stop); last error: not valid JSON: Invalid control character at: line 1 column 476 (char 475); last output: '{\"answer\": \"Based on the provided code, the daily transaction might be rejected by the posting job CBTRN02C due to vali",
+      "error_type": "RuntimeError"
+    },
+    {
+      "id": "Q02",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 10719,
+      "seconds": 21.94,
+      "tool_calls": 2,
+      "answer": "The return code for CBTRN02C when some transactions are rejected is 999.",
+      "citations": [
+        {
+          "program": "CBTRN02C",
+          "start_line": 709,
+          "end_line": 711
+        }
+      ]
+    },
+    {
+      "id": "Q03",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": null,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 12422,
+      "seconds": 10.02,
+      "tool_calls": 2,
+      "answer": "The batch job CBACT04C runs the monthly interest program. It processes account data from multiple files and calculates interest based on the transaction records.",
+      "citations": [
+        {
+          "program": "CBACT04C",
+          "start_line": 181,
+          "end_line": 232
+        }
+      ]
+    },
+    {
+      "id": "Q04",
+      "keywords_ok": true,
+      "keyword_groups_matched": "2/2",
+      "citation_hit": true,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 6321,
+      "seconds": 7.37,
+      "tool_calls": 4,
+      "answer": "After a successful sign-on, an admin user goes to the COADM01C program, while a regular user goes to the COMEN01C program.",
+      "citations": [
+        {
+          "program": "COSGN00C",
+          "start_line": 236,
+          "end_line": 236
+        },
+        {
+          "program": "COMEN01C",
+          "start_line": 201,
+          "end_line": 201
+        }
+      ]
+    },
+    {
+      "id": "Q05",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 17360,
+      "seconds": 19.1,
+      "tool_calls": 6,
+      "answer": "The provided code does not explicitly mention case-sensitivity for the sign-on user ID and password check. To determine if the sign-on user ID and password check is case-sensitive, further investigation is required.",
+      "citations": [
+        {
+          "program": "COSGN00C",
+          "start_line": 83,
+          "end_line": 127
+        },
+        {
+          "program": "COSGN00C",
+          "start_line": 122,
+          "end_line": 127
+        },
+        {
+          "program": "COSGN00C",
+          "start_line": 145,
+          "end_line": 145
+        },
+        {
+          "program": "COSGN00C",
+          "start_line": 242,
+          "end_line": 256
+        },
+        {
+          "program": "COUSR01C",
+          "start_line": 138,
+          "end_line": 138
+        },
+        {
+          "program": "COUSR02C",
+          "start_line": 200,
+          "end_line": 200
+        }
+      ]
+    },
+    {
+      "id": "Q06",
+      "keywords_ok": true,
+      "keyword_groups_matched": "1/1",
+      "citation_hit": true,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 12445,
+      "seconds": 8.44,
+      "tool_calls": 5,
+      "answer": "The sign-on screen for the CardDemo Application shows the message 'User not found. Try again ...' when a user ID does not exist.",
+      "citations": [
+        {
+          "program": "COSGN00C",
+          "start_line": 249,
+          "end_line": 249
+        }
+      ]
+    },
+    {
+      "id": "Q07",
+      "keywords_ok": true,
+      "keyword_groups_matched": "1/1",
+      "citation_hit": true,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 10587,
+      "seconds": 17.54,
+      "tool_calls": 2,
+      "answer": "The monthly interest is calculated in the paragraph 1300-COMPUTE-INTEREST. The interest rate is retrieved from the DISCGRP-FILE in the paragraph 1200-GET-INTEREST-RATE. The interest is computed as follows: \n\n1. The interest rate is read from the DISCGRP-FILE (lines 415-440).\n2. The monthly interest is calculated using the formula: \n   `WS-MONTHLY-INT = (TRAN-CAT-BAL * DIS-INT-RATE) / 1200` (lines 464-465).\n3. The monthly interest is added to the total interest (line 467).\n4. The transaction is written (line 468).\n\nThe exact interest rate used in the calculation is determined from the DISCGRP-FILE, and if the default group code is used, the default interest rate is retrieved (lines 436-440).",
+      "citations": [
+        {
+          "program": "CBACT04C",
+          "start_line": 415,
+          "end_line": 440
+        },
+        {
+          "program": "CBACT04C",
+          "start_line": 462,
+          "end_line": 470
+        }
+      ]
+    },
+    {
+      "id": "Q08",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 8165,
+      "seconds": 8.27,
+      "tool_calls": 4,
+      "answer": "The exact interest rate when an account's group has no record in the disclosure group file is not directly coded in the COBOL programs within the codebase.",
+      "citations": []
+    },
+    {
+      "id": "Q09",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/2",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 34160,
+      "seconds": 27.27,
+      "tool_calls": 10,
+      "answer": "The transaction type code and category code are used in the program CBACT04C. Specifically, the transaction type code (FD-TRANCAT-TYPE-CD) and transaction category code (FD-TRANCAT-CD) are defined in the record layout of the TCATBAL-FILE (lines 66-67 and 81-82). These codes are used to compute interest and process account data.",
+      "citations": [
+        {
+          "program": "CBACT04C",
+          "start_line": 66,
+          "end_line": 67
+        },
+        {
+          "program": "CBACT04C",
+          "start_line": 81,
+          "end_line": 82
+        }
+      ]
+    },
+    {
+      "id": "Q10",
+      "keywords_ok": true,
+      "keyword_groups_matched": "1/1",
+      "citation_hit": true,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 17679,
+      "seconds": 141.38,
+      "tool_calls": 5,
+      "answer": "An online bill payment in COBIL00C pays the full account balance.",
+      "citations": [
+        {
+          "program": "COBIL00C",
+          "start_line": 219,
+          "end_line": 235
+        }
+      ]
+    },
+    {
+      "id": "Q11",
+      "keywords_ok": true,
+      "keyword_groups_matched": "2/2",
+      "citation_hit": true,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 3047,
+      "seconds": 3.14,
+      "tool_calls": 1,
+      "answer": "The bill payment screen says there is nothing to pay when the account balance is zero or no transactions require payment.",
+      "citations": [
+        {
+          "program": "COBIL00C",
+          "start_line": 201,
+          "end_line": 201
+        }
+      ]
+    },
+    {
+      "id": "Q12",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 5383,
+      "seconds": 4.82,
+      "tool_calls": 1,
+      "answer": "The amount must be typed as a numeric value, and it is processed using the NUMVAL-C function, which likely converts a character string to a numeric value.",
+      "citations": [
+        {
+          "program": "COTRN02C",
+          "start_line": 456,
+          "end_line": 466
+        }
+      ]
+    },
+    {
+      "id": "Q13",
+      "keywords_ok": true,
+      "keyword_groups_matched": "1/1",
+      "citation_hit": true,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 5398,
+      "seconds": 5.5,
+      "tool_calls": 1,
+      "answer": "The ID of a new transaction is generated by starting with a high value, incrementing it by 1, and then moving the incremented value to the transaction ID field. This process is performed within the ADD-TRANSACTION paragraph of COTRN02C.",
+      "citations": [
+        {
+          "program": "COTRN02C",
+          "start_line": 444,
+          "end_line": 452
+        }
+      ]
+    },
+    {
+      "id": "Q14",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/3",
+      "citation_hit": null,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 26381,
+      "seconds": 26.0,
+      "tool_calls": 11,
+      "answer": "The copybook CVACT01Y is used in the following programs:",
+      "citations": [
+        {
+          "program": "COPAUA0C",
+          "start_line": 206,
+          "end_line": 206
+        },
+        {
+          "program": "COPAUS0C",
+          "start_line": 144,
+          "end_line": 144
+        },
+        {
+          "program": "COACCT01",
+          "start_line": 171,
+          "end_line": 171
+        },
+        {
+          "program": "CBACT01C",
+          "start_line": 89,
+          "end_line": 89
+        },
+        {
+          "program": "CBACT04C",
+          "start_line": 112,
+          "end_line": 112
+        },
+        {
+          "program": "CBEXPORT",
+          "start_line": 78,
+          "end_line": 78
+        },
+        {
+          "program": "CBIMPORT",
+          "start_line": 89,
+          "end_line": 89
+        },
+        {
+          "program": "CBSTM03A",
+          "start_line": 57,
+          "end_line": 57
+        },
+        {
+          "program": "CBTRN01C",
+          "start_line": 119,
+          "end_line": 119
+        },
+        {
+          "program": "CBTRN02C",
+          "start_line": 121,
+          "end_line": 121
+        },
+        {
+          "program": "COACTUPC",
+          "start_line": 640,
+          "end_line": 640
+        },
+        {
+          "program": "COACTVWC",
+          "start_line": 244,
+          "end_line": 244
+        },
+        {
+          "program": "COBIL00C",
+          "start_line": 80,
+          "end_line": 80
+        },
+        {
+          "program": "COTRN02C",
+          "start_line": 89,
+          "end_line": 89
+        }
+      ]
+    },
+    {
+      "id": "Q15",
+      "keywords_ok": true,
+      "keyword_groups_matched": "2/2",
+      "citation_hit": null,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 11241,
+      "seconds": 10.35,
+      "tool_calls": 2,
+      "answer": "CBTRN02C writes to the TRANSACT-FILE (AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS) and DALYREJS-FILE (AWS.M2.CARDDEMO.DALYREJS(+1)).",
+      "citations": [
+        {
+          "program": "CBTRN02C",
+          "start_line": 256,
+          "end_line": 293
+        }
+      ]
+    },
+    {
+      "id": "Q16",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/2",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 17519,
+      "seconds": 10.95,
+      "tool_calls": 4,
+      "answer": "In COTRN02C, when PF3 is pressed, the user is taken to the SEND-TRNADD-SCREEN paragraph, which populates the header information for the transaction.",
+      "citations": [
+        {
+          "program": "COTRN02C",
+          "start_line": 516,
+          "end_line": 534
+        },
+        {
+          "program": "COTRN02C",
+          "start_line": 552,
+          "end_line": 571
+        }
+      ]
+    },
+    {
+      "id": "Q17",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 6705,
+      "seconds": 912.66,
+      "tool_calls": 5,
+      "answer": "The date should be provided in the MM-DD-YY format.",
+      "citations": [
+        {
+          "program": "COTRN02C",
+          "start_line": 552,
+          "end_line": 571
+        }
+      ]
+    },
+    {
+      "id": "Q18",
+      "keywords_ok": true,
+      "keyword_groups_matched": "1/1",
+      "citation_hit": null,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 12056,
+      "seconds": 12.3,
+      "tool_calls": 3,
+      "answer": "Three programs that can transfer control to the main menu COMEN01C are COACTUPC, COACTVWC, and COBIL00C.",
+      "citations": [
+        {
+          "program": "COMEN01C",
+          "start_line": 82,
+          "end_line": 108
+        }
+      ]
+    },
+    {
+      "id": "Q19",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 11869,
+      "seconds": 9.06,
+      "tool_calls": 2,
+      "answer": "The utility program COTRN02C does not call any other utility program to check that a date is valid. The validation for the date fields is performed within the VALIDATE-INPUT-DATA-FIELDS paragraph, specifically for the ORIG DATE field (TORIGDTI), ensuring it is in the format YYYY-MM-DD.",
+      "citations": [
+        {
+          "program": "COTRN02C",
+          "start_line": 355,
+          "end_line": 360
+        }
+      ]
+    },
+    {
+      "id": "Q20",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 25257,
+      "seconds": 19.16,
+      "tool_calls": 5,
+      "answer": "The search results indicate that the terms 'cycle credit' and 'cycle debit' are used in the COACTUPC program, not in CBACT04C. Specifically, COACTUPC uses these terms in lines 1515 and 1522 to move text to a work variable. However, these terms are not found in CBACT04C, suggesting that cycle credit and cycle debit are not directly handled by CBACT04C.",
+      "citations": [
+        {
+          "program": "COACTUPC",
+          "start_line": 1515,
+          "end_line": 1522
+        }
+      ]
+    }
+  ]
+}

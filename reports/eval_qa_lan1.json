@@ -1,0 +1,416 @@
+{
+  "summary": {
+    "questions": 20,
+    "correct": 2,
+    "accuracy": 0.1,
+    "citation_hit_rate": 0.0,
+    "citation_validity": 0.812,
+    "avg_tokens": 4808,
+    "avg_seconds": 10.12,
+    "model": "qwen2.5:7b-instruct"
+  },
+  "rows": [
+    {
+      "id": "Q01",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/4",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 0.0,
+      "tokens": 6685,
+      "seconds": 13.55,
+      "answer": "The daily transaction could be rejected by the posting job CBTRN02C due to the following reason codes: '0000', '3100', '4100', '4200', '4300', '5100', '5200', '9000'.",
+      "citations": [
+        {
+          "program": "COPAUA0C",
+          "start_line": 59,
+          "end_line": 971
+        }
+      ]
+    },
+    {
+      "id": "Q02",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 6451,
+      "seconds": 8.0,
+      "answer": "CBTRN02C ends with an ABEND (abnormal termination) program with return code 9999 when some transactions were rejected.",
+      "citations": [
+        {
+          "program": "CBTRN02C",
+          "start_line": 707,
+          "end_line": 711
+        }
+      ]
+    },
+    {
+      "id": "Q03",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": null,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2175,
+      "seconds": 4.77,
+      "answer": "No direct batch job is identified as running CBACT04C.",
+      "citations": []
+    },
+    {
+      "id": "Q04",
+      "keywords_ok": false,
+      "keyword_groups_matched": "1/2",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 0.0,
+      "tokens": 7964,
+      "seconds": 11.33,
+      "answer": "After a successful sign-on, an admin goes to the program COADM01C and a regular user goes to the program COUSR00C.",
+      "citations": [
+        {
+          "program": "COADM01C",
+          "start_line": 620,
+          "end_line": 689
+        },
+        {
+          "program": "COUSR00C",
+          "start_line": 588,
+          "end_line": 689
+        }
+      ]
+    },
+    {
+      "id": "Q05",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2053,
+      "seconds": 3.87,
+      "answer": "The sign-on user ID and password check does not appear to be case-sensitive based on the current code base.",
+      "citations": []
+    },
+    {
+      "id": "Q06",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 10990,
+      "seconds": 33.86,
+      "answer": "The exact message for a non-existent user ID is not available in the provided codebase. The message is stored in the COSGN0AO message file, but it is not present in the source tree.",
+      "citations": [
+        {
+          "program": "COSGN00C",
+          "start_line": 149,
+          "end_line": 157
+        }
+      ]
+    },
+    {
+      "id": "Q07",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2009,
+      "seconds": 2.67,
+      "answer": "There is no direct mention of monthly interest calculation in CBACT04C based on the search.",
+      "citations": []
+    },
+    {
+      "id": "Q08",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2048,
+      "seconds": 3.1,
+      "answer": "The codebase does not explicitly mention an interest rate used when an account's group has no record in the disclosure group file.",
+      "citations": []
+    },
+    {
+      "id": "Q09",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/2",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2102,
+      "seconds": 4.65,
+      "answer": "The specific transaction type code and category code used when CBACT04C posts interest are not directly mentioned in the code. Further investigation is required to find the exact codes.",
+      "citations": []
+    },
+    {
+      "id": "Q10",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2028,
+      "seconds": 2.92,
+      "answer": "The code base does not contain a direct reference to how much an online bill payment in COBIL00C pays.",
+      "citations": []
+    },
+    {
+      "id": "Q11",
+      "keywords_ok": false,
+      "keyword_groups_matched": "1/2",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2004,
+      "seconds": 2.44,
+      "answer": "The phrase 'nothing to pay' on the bill payment screen was not found in the code base.",
+      "citations": []
+    },
+    {
+      "id": "Q12",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 14063,
+      "seconds": 27.01,
+      "tool_calls": 8,
+      "answer": "The format for typing the amount when adding a transaction in CBTRN02C is not explicitly mentioned in the provided code or comments. The program structure and initial lines do not contain specific details about the amount field. Further review of the program's paragraphs and the included copybooks might be necessary to determine the exact format.",
+      "citations": [
+        {
+          "program": "CBTRN02C",
+          "start_line": 1,
+          "end_line": 40
+        }
+      ]
+    },
+    {
+      "id": "Q13",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 6540,
+      "seconds": 16.93,
+      "answer": "The ID of a new transaction is not directly generated in COTRN02C based on the provided information. The program does not contain any explicit code for generating a new transaction ID. However, it does interact with files and other programs that might handle transaction IDs.",
+      "citations": [
+        {
+          "program": "COTRN02C",
+          "start_line": 576,
+          "end_line": 604
+        },
+        {
+          "program": "COTRN02C",
+          "start_line": 609,
+          "end_line": 637
+        },
+        {
+          "program": "COTRN02C",
+          "start_line": 642,
+          "end_line": 668
+        },
+        {
+          "program": "COTRN02C",
+          "start_line": 673,
+          "end_line": 697
+        },
+        {
+          "program": "COTRN02C",
+          "start_line": 711,
+          "end_line": 749
+        }
+      ]
+    },
+    {
+      "id": "Q14",
+      "keywords_ok": true,
+      "keyword_groups_matched": "3/3",
+      "citation_hit": null,
+      "correct": true,
+      "citations_valid": 0.9333333333333333,
+      "tokens": 2766,
+      "seconds": 20.24,
+      "answer": "The programs that include the copybook CVACT01Y are: CBACT01C, CBACT04C, CBEXPORT, CBIMPORT, CBSTM03A, CBTRN01C, CBTRN02C, COACCT01, COACTUPC, COACTVWC, COBIL00C, COPAUA0C, COPAUS0C, COPAUS1C, COTRN02C.",
+      "citations": [
+        {
+          "program": "CBACT01C",
+          "start_line": 89,
+          "end_line": 89
+        },
+        {
+          "program": "CBACT04C",
+          "start_line": 112,
+          "end_line": 112
+        },
+        {
+          "program": "CBEXPORT",
+          "start_line": 78,
+          "end_line": 78
+        },
+        {
+          "program": "CBIMPORT",
+          "start_line": 89,
+          "end_line": 89
+        },
+        {
+          "program": "CBSTM03A",
+          "start_line": 57,
+          "end_line": 57
+        },
+        {
+          "program": "CBTRN01C",
+          "start_line": 119,
+          "end_line": 119
+        },
+        {
+          "program": "CBTRN02C",
+          "start_line": 121,
+          "end_line": 121
+        },
+        {
+          "program": "COACCT01",
+          "start_line": 171,
+          "end_line": 171
+        },
+        {
+          "program": "COACTUPC",
+          "start_line": 640,
+          "end_line": 640
+        },
+        {
+          "program": "COACTVWC",
+          "start_line": 244,
+          "end_line": 244
+        },
+        {
+          "program": "COBIL00C",
+          "start_line": 80,
+          "end_line": 80
+        },
+        {
+          "program": "COPAUA0C",
+          "start_line": 144,
+          "end_line": 144
+        },
+        {
+          "program": "COPAUS0C",
+          "start_line": 144,
+          "end_line": 144
+        },
+        {
+          "program": "COPAUS1C",
+          "start_line": 144,
+          "end_line": 144
+        },
+        {
+          "program": "COTRN02C",
+          "start_line": 89,
+          "end_line": 89
+        }
+      ]
+    },
+    {
+      "id": "Q15",
+      "keywords_ok": false,
+      "keyword_groups_matched": "1/2",
+      "citation_hit": null,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 3662,
+      "seconds": 5.8,
+      "answer": "CBTRN02C writes to the TRANSACT-FILE, which is located at AWS.M2.CARDDEMO.TRANSACT.VSAM.KSDS.",
+      "citations": [
+        {
+          "program": "CBTRN02C",
+          "start_line": 256,
+          "end_line": 256
+        }
+      ]
+    },
+    {
+      "id": "Q16",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/2",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 5100,
+      "seconds": 7.05,
+      "answer": "PF3 takes the user to the ADD-TRANSACTION paragraph if the user confirms ('Y' or 'y'). Otherwise, it either sends a confirmation screen or an error message.",
+      "citations": [
+        {
+          "program": "COTRN02C",
+          "start_line": 164,
+          "end_line": 188
+        }
+      ]
+    },
+    {
+      "id": "Q17",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 2036,
+      "seconds": 3.07,
+      "answer": "The specific date format required by COTRN02C for original and processing dates is not explicitly mentioned in the code.",
+      "citations": []
+    },
+    {
+      "id": "Q18",
+      "keywords_ok": true,
+      "keyword_groups_matched": "1/1",
+      "citation_hit": null,
+      "correct": true,
+      "citations_valid": 1.0,
+      "tokens": 2421,
+      "seconds": 6.85,
+      "answer": "The program COMEN01C does not directly transfer control to the main menu COMEN01C, but it does transfer control to COSGN00C at line 201.",
+      "citations": [
+        {
+          "program": "COMEN01C",
+          "start_line": 201,
+          "end_line": 201
+        }
+      ]
+    },
+    {
+      "id": "Q19",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": null,
+      "tokens": 3517,
+      "seconds": 11.23,
+      "answer": "COTRN02C does not directly call a utility program for date validation based on the provided information.",
+      "citations": []
+    },
+    {
+      "id": "Q20",
+      "keywords_ok": false,
+      "keyword_groups_matched": "0/1",
+      "citation_hit": false,
+      "correct": false,
+      "citations_valid": 1.0,
+      "tokens": 9536,
+      "seconds": 13.08,
+      "answer": "When CBACT04C applies interest, the cycle credit (WS-MONTHLY-INT) is computed as the product of the transaction category balance (TRAN-CAT-BAL) and the discount interest rate (DIS-INT-RATE), divided by 1200. This amount is then added to the total interest (WS-TOTAL-INT). A transaction record is written to the transaction file (TRANACT-FILE) with the transaction type set to '01' (indicating an interest transaction), the account ID, the transaction amount (WS-MONTHLY-INT), and other transaction details. If the write operation is successful, the transaction record is updated in the account file (ACCOUNT-FILE) to reflect the cycle credit.",
+      "citations": [
+        {
+          "program": "CBACT04C",
+          "start_line": 462,
+          "end_line": 515
+        }
+      ]
+    }
+  ]
+}

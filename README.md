@@ -90,10 +90,10 @@ Trích business rule (chỉ điền số tự đo, xem `reports/eval.md`):
 | Chỉ số | Giá trị |
 | --- | --- |
 | Nhãn tay | 50 rule, 5 chương trình (CBTRN02C, COSGN00C, COTRN02C, CBACT04C, COBIL00C) |
-| Precision / Recall / F1 | 20.0% / 6.0% / 9.2% |
-| Trích dẫn qua kiểm tra | 93.3% |
-| Token và thời gian mỗi chương trình | 22959 token, 299.6 giây (mô hình qwen2.5:7b-instruct) |
-| Agent trả lời đúng 20 câu onboarding (`make eval-qa`) | 2/20, trích đúng dòng 0.0% (mô hình qwen2.5:7b-instruct) |
+| Precision / Recall / F1 | 18.3% / 72.0% / 29.1% |
+| Trích dẫn qua kiểm tra | 98.5% |
+| Token và thời gian mỗi chương trình | 18044 token, 339.6 giây (mô hình qwen2.5:14b-instruct) |
+| Agent trả lời đúng 20 câu onboarding (`make eval-qa`) | 12/20, trích đúng dòng 56.2% (mô hình qwen2.5:14b-instruct) |
 | Người trả lời 20 câu, chỉ đọc code / dùng LegacyLens | [X] phút / [X] phút |
 
 ### Các lần thử
@@ -101,6 +101,16 @@ Trích business rule (chỉ điền số tự đo, xem `reports/eval.md`):
 | Lần | Thay đổi | Mô hình | P / R / F1 | Token mỗi chương trình |
 | --- | --- | --- | --- | --- |
 | 1 | Bản đầu, prompt gốc | qwen2.5:7b-instruct | 20.0% / 6.0% / 9.2% | 22959 |
+| 2 | Phân tích tĩnh chọn đoạn có quyết định, mô hình giải thích từng đoạn | qwen2.5:7b-instruct | 17.6% / 66.0% / 27.7% | 17848 |
+| 3 | Qwen2.5 14B, phân tích tĩnh chọn đoạn như lần 2 | qwen2.5:14b-instruct | 18.3% / 72.0% / 29.1% | 18044 |
+
+### Các lần thử hỏi đáp
+
+| Lần | Thay đổi | Mô hình | Đúng / 20 câu | Trích đúng dòng |
+| --- | --- | --- | --- | --- |
+| 1 | Agent tự tìm, chỉ có danh sách chương trình | qwen2.5:7b-instruct | 2/20 | 0.0% |
+| 2 | Có ngữ cảnh tĩnh (danh mục chương trình, outline, nơi dùng) và nhắc không bỏ cuộc sớm | qwen2.5:7b-instruct | 8/20 | 37.5% |
+| 3 | Qwen2.5 14B, có ngữ cảnh tĩnh như lần 2 | qwen2.5:14b-instruct | 12/20 | 56.2% |
 
 ## Cách chấm
 
