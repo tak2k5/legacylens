@@ -59,6 +59,7 @@ with tab_outline:
 
 with tab_ask:
     question = st.text_input("Question", "Why would a daily transaction be rejected in the posting job?")
+    add_vi = st.checkbox("Thêm bản tiếng Việt", value=True)
     if st.button("Ask") and question:
         from legacylens.agent import Agent
 
@@ -69,6 +70,10 @@ with tab_ask:
             st.error(f"{type(exc).__name__}: {str(exc)[:400]}")
             st.stop()
         st.markdown(answer.answer)
+        if add_vi:
+            with st.spinner("Đang dịch sang tiếng Việt..."):
+                vi = Agent(idx).translate_answer(answer.answer, "vi")
+            st.markdown(f"**Tiếng Việt:** {vi}" if vi else "_Chưa dịch được, đọc bản tiếng Anh ở trên._")
         tb = Toolbox(idx)
         for c, chk in zip(answer.citations, cite_checks, strict=True):
             status = "ok" if chk["valid"] else "FAILED: " + "; ".join(chk["problems"])

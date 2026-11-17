@@ -362,6 +362,24 @@ class Agent:
         ]
         return rules.model_copy(update={"rules": out, "purpose": purpose}), True
 
+    def translate_answer(self, text: str, lang: str = "vi") -> str | None:
+        """Translate an answer for the reader. The English answer stays the one that is scored and cited."""
+        messages = [
+            {
+                "role": "system",
+                "content": f"Translate this answer about a COBOL program into {LANGUAGES[lang]}. Keep every COBOL "
+                "data name, paragraph name, program name, file name, code, number and quoted message exactly as it "
+                "is. Reply with only the translation.",
+            },
+            {"role": "user", "content": text},
+        ]
+        try:
+            msg, _ = self._complete(messages, Trace(), tools=False)
+        except Exception:  # Colab gone: the English answer is still shown
+            return None
+        out = re.sub(r"<think>.*?</think>", "", msg.content or "", flags=re.S).strip()
+        return out or None
+
     def _purpose(self, pid: str, language: str, trace: Trace) -> str:
         trace.steps += 1
         messages = [
