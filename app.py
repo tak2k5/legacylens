@@ -71,7 +71,8 @@ with tab_ask:
         st.markdown(answer.answer)
         tb = Toolbox(idx)
         for c, chk in zip(answer.citations, cite_checks, strict=True):
-            label = f"{c.program}:{c.start_line}-{c.end_line} · {'ok' if chk['valid'] else 'FAILED'}"
+            status = "ok" if chk["valid"] else "FAILED: " + "; ".join(chk["problems"])
+            label = f"{c.program}:{c.start_line}-{c.end_line} · {status}"
             with st.expander(label):
                 st.code(tb.read_lines(c.program, c.start_line, c.end_line), language="cobol")
         st.caption(json.dumps({k: v for k, v in trace.as_dict().items() if k != "calls"}))
