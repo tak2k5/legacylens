@@ -9,6 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from legacylens.aliases import expand, label
 from legacylens.citations import verify
 from legacylens.docgen import render
 from legacylens.index import Index
@@ -33,7 +34,10 @@ st.sidebar.caption(
     f"{stats['programs']} programs · {stats['copybooks']} copybooks · {stats['jcl_steps']} JCL steps · {stats['loc']:,} LOC"
 )
 program = st.sidebar.selectbox(
-    "Program", sorted(idx.programs), index=sorted(idx.programs).index("CBTRN02C") if "CBTRN02C" in idx.programs else 0
+    "Program (gõ mã hoặc tên tiếng Việt để tìm)",
+    sorted(idx.programs),
+    index=sorted(idx.programs).index("CBTRN02C") if "CBTRN02C" in idx.programs else 0,
+    format_func=label,
 )
 lang = st.sidebar.radio("Doc language", ["vi", "ja", "en"], horizontal=True)
 
@@ -59,13 +63,17 @@ with tab_outline:
 
 with tab_ask:
     question = st.text_input("Question", "Why would a daily transaction be rejected in the posting job?")
+    st.caption(
+        "Có thể gõ tên tiếng Việt thay cho mã, ví dụ: What does thanh-toan-hoa-don do? Danh sách tên ở thanh bên."
+    )
     add_vi = st.checkbox("Thêm bản tiếng Việt", value=True)
     if st.button("Ask") and question:
         from legacylens.agent import Agent
 
         try:
             with st.spinner("Reading the code..."):
-                answer, cite_checks, trace = Agent(idx).ask(question, mode=os.getenv("LEGACYLENS_ASK_MODE", "guided"))
+                asked = expand(question)  # "thanh-toan-hoa-don" -> "COBIL00C (thanh-toan-hoa-don)"
+                answer, cite_checks, trace = Agent(idx).ask(asked, mode=os.getenv("LEGACYLENS_ASK_MODE", "guided"))
         except Exception as exc:  # missing key, rate limit, model gave no JSON
             st.error(f"{type(exc).__name__}: {str(exc)[:400]}")
             st.stop()

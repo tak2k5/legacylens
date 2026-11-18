@@ -1,0 +1,12 @@
+MẪU THỬ - KHÔNG PHẢI DỮ LIỆU THẬT. Người mới, chỉ đọc code, Q01-Q10.
+
+Q01: Bị từ chối khi số thẻ không có trong file xref (100) hoặc account không tồn tại (101). Còn lại em chưa tìm ra.
+Q02: Hình như là return code 4.
+Q03: Em không tìm được job nào chạy CBACT04C.
+Q04: Admin vào COADM01C, user thường thì vào menu chính, em không chắc tên chương trình.
+Q05: Có phân biệt chữ hoa chữ thường vì so sánh trực tiếp với file.
+Q06: Hiện thông báo lỗi "Wrong Password".
+Q07: Lấy số dư nhân lãi suất.
+Q08: Không tính lãi.
+Q09: Type 01, category em không rõ.
+Q10: Trả hết số dư hiện tại của tài khoản.

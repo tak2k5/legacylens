@@ -1,0 +1,12 @@
+MẪU THỬ - KHÔNG PHẢI DỮ LIỆU THẬT. Người mới, dùng LegacyLens, Q11-Q20.
+
+Q11: When the account balance is zero or negative, the screen says "You have nothing to pay...".
+Q12: Sign, 8 digits, a dot and 2 decimals, like -99999999.99.
+Q13: It reads the last transaction ID and adds 1 to it.
+Q14: CBTRN02C and COBIL00C use CVACT01Y.
+Q15: TRANSACT and the reject file DALYREJS.
+Q16: Back to the previous screen, or COMEN01C if there is no caller.
+Q17: YYYY-MM-DD
+Q18: COSGN00C, COBIL00C, COTRN02C
+Q19: It calls CSUTLDTC.
+Q20: The interest is added to the balance, I think the cycle values stay the same.

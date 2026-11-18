@@ -12,7 +12,7 @@ Q ?= Which program validates the user id and password at sign-on?
 # .env là tùy chọn: không có thì dùng biến môi trường (Codespaces secrets)
 LOADENV = if [ -f .env ]; then set -a; . ./.env; set +a; fi;
 
-.PHONY: help install data test lint stats graph check-gold review gold-ok gold-set gold-lines gold-fix gold-add gold-copy gold-del ask extract doc eval eval-qa readme ui
+.PHONY: help install data test lint stats graph check-gold review gold-ok gold-set gold-lines gold-fix gold-add gold-copy gold-del ask extract doc eval eval-qa grade readme ui
 
 help:          ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*##' Makefile | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -59,5 +59,7 @@ eval-qa:       ## Agent trả lời 20 câu onboarding, chấm tự động (c�
 readme:        ## Chép số đo vào bảng Kết quả của README. Thêm NOTE="..." để ghi một lần thử, VIDEO=link để thêm video
 	$(CLI) readme $(if $(NOTE),--attempt "$(NOTE)") $(if $(QA_NOTE),--qa-attempt "$(QA_NOTE)") $(if $(VIDEO),--video "$(VIDEO)") \
 	  $(if $(READ_MIN),--read-min "$(READ_MIN)" --tool-min "$(TOOL_MIN)" --read-ok "$(READ_OK)" --tool-ok "$(TOOL_OK)" --people "$(PEOPLE)")
+grade:         ## Chấm file câu trả lời của người làm bài bằng mô hình. Ví dụ: make grade F=onboarding/tra_loi/nguoi1_phan1.txt PART=Q01-Q10
+	$(LOADENV) $(CLI) grade $(F) --part $(PART)
 ui:            ## Giao diện hỏi đáp (Streamlit)
 	$(LOADENV) PYTHONPATH=src LEGACYLENS_SRC=$(SRC) streamlit run app.py --server.headless true

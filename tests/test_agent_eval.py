@@ -613,3 +613,39 @@ def test_cli_modes_are_not_read_as_model():
     )
     with pytest.raises(SystemExit):
         ap.parse_args(["eval-qa", "--mod", "x"])  # no silent abbreviation
+
+
+def test_grade_parses_answers_and_uses_the_model_reason(idx, tmp_path):
+    from legacylens.grade import grade_file, is_sample, parse_answers
+    from legacylens.qa import Question
+
+    text = "MẪU THỬ\nQ01: limit is 5000\nCâu 2 - no idea\n  still no idea\n"
+    assert parse_answers(text) == {"Q01": "limit is 5000", "Q02": "no idea still no idea"} and is_sample(text)
+    qs = [
+        Question(
+            id="Q01",
+            question="Limit?",
+            keywords=[["5000"]],
+            expected=[{"program": "PAYCHK", "start_line": 1, "end_line": 3}],
+        ),
+        Question(id="Q02", question="Reason?", keywords=[["200"]]),
+        Question(id="Q03", question="Menu?", keywords=[["MENU01"]]),
+    ]
+    f = tmp_path / "a.txt"
+    f.write_text(text, encoding="utf-8")
+    replies = [text_msg('{"correct": true, "reason": "Đúng mức 5000."}'), text_msg("không biết")]
+    model_ok, kw_ok, report = grade_file(Agent(idx, client=FakeClient(replies), model="f"), qs, f, "Q01-Q10")
+    assert (model_ok, kw_ok) == (1, 1)
+    assert "| Q01 | đúng | Đúng mức 5000. | đủ |" in report and "| Q02 | ? |" in report
+    assert "| Q03 | sai | Không có câu trả lời. |" in report and "không phải dữ liệu thật" in report
+
+
+def test_vietnamese_names_cover_every_program_and_expand_in_questions(idx):
+    from legacylens.aliases import ALIASES, expand, label
+
+    assert len(set(ALIASES.values())) == len(ALIASES) and label("COBIL00C") == "COBIL00C · thanh-toan-hoa-don"
+    assert label("PAYCHK") == "PAYCHK"
+    assert expand("Dang-nhap sai mat khau?") == "COSGN00C (dang-nhap) sai mat khau?"
+    assert expand("them-giao-dich-x") == "them-giao-dich-x"  # only whole names
+    if CARDDEMO.exists():
+        assert set(ALIASES) == set(Index.build(CARDDEMO).programs)

@@ -1,0 +1,13 @@
+MẪU THỬ - KHÔNG PHẢI DỮ LIỆU THẬT. Trả lời bằng tiếng Việt, Q01-Q10.
+
+Q01: Có 4 lý do: số thẻ không tìm thấy trong bảng tham chiếu chéo, tài khoản không tồn tại, vượt hạn mức tín dụng,
+     và giao dịch sau ngày hết hạn của tài khoản. Mã lý do là 100, 101, 102, 103.
+Q02: Mã trả về bằng bốn.
+Q03: Job tính lãi INTCALC.
+Q04: Quản trị viên sang COADM01C, người dùng thường sang COMEN01C.
+Q05: Không phân biệt, vì user ID và mật khẩu được đổi sang chữ in hoa trước khi so sánh.
+Q06: Báo là không tìm thấy người dùng, mời thử lại.
+Q07: Số dư nhóm giao dịch nhân lãi suất năm rồi chia 1200.
+Q08: Dùng lãi suất của nhóm mặc định DEFAULT.
+Q09: Loại giao dịch 01, nhóm 05.
+Q10: Trả toàn bộ số dư hiện tại.

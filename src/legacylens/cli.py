@@ -142,7 +142,9 @@ def cmd_ask(args) -> None:
     from .agent import Agent
 
     agent = Agent(_index(args), model=args.model, max_steps=args.max_steps)
-    answer, checks, trace = agent.ask(args.question, mode=getattr(args, "mode", "guided"))
+    from .aliases import expand
+
+    answer, checks, trace = agent.ask(expand(args.question), mode=getattr(args, "mode", "guided"))
     print(answer.answer)
     for c, chk in zip(answer.citations, checks, strict=True):
         print(
@@ -330,6 +332,21 @@ def _unreachable_row(row: dict) -> bool:
     return any(k in err for k in ("Connection error", "timed out", "524", "530", "1033"))
 
 
+def cmd_grade(args) -> None:
+    from .agent import Agent
+    from .grade import grade_file
+    from .qa import load_questions
+
+    path = Path(args.file)
+    if not path.exists():
+        sys.exit(f"not found: {path}")
+    model_ok, kw_ok, report = grade_file(Agent(_index(args)), load_questions(args.questions), path, args.part)
+    out = path.with_suffix(".cham.md")
+    out.write_text(report, encoding="utf-8")
+    print(report)
+    print(f"wrote {out}")
+
+
 def cmd_eval_qa(args) -> None:
     from .agent import Agent
     from .qa import dump_row, load_questions, summarize
@@ -461,6 +478,11 @@ def build_parser() -> argparse.ArgumentParser:
     ge.add_argument("--field", default="summary")
     ge.add_argument("--gold", default="gold/rules.jsonl")
     ge.set_defaults(fn=cmd_gold_edit)
+    gr = sub.add_parser("grade", help="Grade a tester's written answers with the LLM (step 10)")
+    gr.add_argument("file")
+    gr.add_argument("--part", required=True, choices=["Q01-Q10", "Q11-Q20"])
+    gr.add_argument("--questions", default="onboarding/questions.jsonl")
+    gr.set_defaults(fn=cmd_grade)
     rd = sub.add_parser("readme", help="Write measured numbers from reports/ into the README results table")
     rd.add_argument("--readme", default="README.md")
     rd.add_argument("--reports", default="reports")

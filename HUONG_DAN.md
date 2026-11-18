@@ -81,7 +81,7 @@ cp -a /tmp/ll/legacylens/. .
 cp -a /tmp/giu/gold/. gold/ && cp /tmp/giu/README.md README.md
 for d in reports docs; do if [ -d /tmp/giu/$d ]; then cp -a /tmp/giu/$d/. $d/; fi; done
 if [ -f /tmp/giu/ket_qua_bam_gio.csv ]; then cp /tmp/giu/ket_qua_bam_gio.csv onboarding/; fi
-sed -i 's/# [0-9][0-9] test offline/# 49 test offline/' README.md
+sed -i 's/# [0-9][0-9] test offline/# 51 test offline/' README.md
 make install > /dev/null && make test | tail -1 && make check-gold | tail -1
 make graph > /dev/null && ls reports/graph.mmd
 make help | grep -E "readme|gold-ok"
@@ -90,7 +90,7 @@ echo "XONG"
 EOF
 ```
 
-**Đúng khi:** in `49 passed`, `N/N gold rules pass` với N là số nhãn của bạn, `reports/graph.mmd`, hai dòng
+**Đúng khi:** in `51 passed`, `N/N gold rules pass` với N là số nhãn của bạn, `reports/graph.mmd`, hai dòng
 `gold-ok` và `readme`, rồi `main -> main` và `XONG`. Kết quả chấm điểm (`reports/`), tài liệu sinh ra (`docs/`) và kết
 quả bấm giờ (`onboarding/`) cũng được giữ nguyên. Nếu in `DỪNG` hoặc dừng giữa chừng mà không có `XONG`, chưa có gì bị đẩy lên GitHub: gửi
 lại log trước khi làm tiếp.
@@ -920,6 +920,59 @@ Mỗi phần chỉ dán 10.3 một lần. Nếu lỡ dán hai lần cho cùng m�
 
 Lặp lại 10.2 và 10.3 cho mỗi phần: người 1 phần 1, người 1 phần 2, rồi người 2 nếu có. Mỗi người làm 2 phần là đủ.
 
+### 10.3b. Chỉ khi cần: người làm bài gửi câu trả lời bằng file
+
+Dùng mục này thay cho 10.2 và 10.3 khi người làm bài tự làm ở máy họ, rồi gửi file câu trả lời và tự bấm giờ. Mô hình
+chấm từng câu và ghi lý do, nên tab Colab phải đang chạy.
+
+1. Chép câu trả lời sang một file `.txt`, mỗi câu bắt đầu bằng mã câu (`Q01: ...`, viết nhiều dòng cũng được). Hỏi người
+   làm bài **tổng số phút** đã làm phần đó.
+2. Dán `mkdir -p /workspaces/legacylens/onboarding/tra_loi`, rồi kéo thả file vào thư mục `onboarding/tra_loi`, đặt tên
+   dạng `nguoi1_phan1.txt`.
+3. Dán khối này và trả lời các câu hỏi hiện ra:
+
+```bash
+cd /workspaces/legacylens
+cat > /tmp/cham_file.sh <<'EOF'
+set -a; . ./.env; set +a
+curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
+echo ""
+read -rp ">>> Tên file trong onboarding/tra_loi/ (ví dụ nguoi1_phan1.txt): " F
+F="onboarding/tra_loi/${F##*/}"
+test -f "$F" || { echo "DỪNG: không thấy $F. Kéo thả file vào thư mục onboarding/tra_loi rồi dán lại khối này."; exit 1; }
+if head -c 500 "$F" | grep -q "MẪU THỬ"; then echo "DỪNG: đây là file mẫu, không phải câu trả lời thật. Không ghi vào kết quả."; exit 1; fi
+read -rp ">>> Người số mấy (1 hoặc 2): " N
+read -rp ">>> Cách làm (1 = chỉ đọc code, 2 = dùng LegacyLens): " C
+case "$N$C" in 11|22) Q="Q01-Q10";; 12|21) Q="Q11-Q20";; *) echo "DỪNG: chỉ gõ 1 hoặc 2. Dán lại khối này."; exit 1;; esac
+if grep -q "^$N,$C,$Q," onboarding/ket_qua_bam_gio.csv 2>/dev/null; then echo "DỪNG: người $N cách $C đã có trong onboarding/ket_qua_bam_gio.csv. Gửi log cho mình."; exit 1; fi
+read -rp ">>> Tổng thời gian làm phần này, tính bằng phút (ví dụ 25): " M
+case "$M" in ''|*[!0-9]*) echo "DỪNG: gõ một số nguyên. Dán lại khối này."; exit 1;; esac
+echo "Mô hình đang chấm 10 câu (vài phút)..."
+make grade F="$F" PART="$Q" | grep -E '^\| Q|^Mô hình chấm|^wrote'
+read -rp ">>> Số câu đúng trên 10, sau khi bạn đọc lý do và tự quyết: " D
+case "$D" in [0-9]|10) ;; *) echo "DỪNG: gõ một số từ 0 đến 10. Dán lại khối này."; exit 1;; esac
+test -f onboarding/ket_qua_bam_gio.csv || echo "nguoi,cach,cau,giay,dung" > onboarding/ket_qua_bam_gio.csv
+echo "$N,$C,$Q,$((M * 60)),$D" >> onboarding/ket_qua_bam_gio.csv
+echo "đã lưu: người $N, cách $C, $Q, $M phút, đúng $D/10"
+EOF
+bash /tmp/cham_file.sh
+```
+
+Khối in một bảng: mỗi câu có kết quả mô hình chấm (`đúng`, `sai`, hoặc `?` khi mô hình không trả lời được), lý do bằng
+tiếng Việt, và cột từ khóa. Câu trả lời tiếng Việt đúng ý vẫn có thể thiếu từ khóa tiếng Anh, nên hãy tin cột lý do hơn.
+Mô hình chỉ gợi ý: bạn đọc lý do, rồi tự gõ số câu đúng cuối cùng. Bảng chấm được lưu cạnh file, dạng
+`nguoi1_phan1.cham.md`.
+
+**Đúng khi:** in bảng chấm, rồi `đã lưu: người ..., cách ..., ... phút, đúng .../10`. Mỗi phần chấm một lần. Khi đủ cả
+hai cách, làm 10.4.
+
+10.4 đẩy cả thư mục `onboarding/tra_loi` lên GitHub. Nếu người làm bài không muốn công khai câu trả lời, dán
+`rm -r onboarding/tra_loi` trước khi làm 10.4.
+
+**Thử lệnh chấm trước khi có người thật:** thư mục `onboarding/mau_thu` có 3 file mẫu do AI viết, có dòng `MẪU THỬ` ở
+đầu. Dán `make grade F=onboarding/mau_thu/sv_c_tieng_viet.txt PART=Q01-Q10` để xem mô hình chấm ra sao. Khối ở trên từ
+chối ghi các file này vào kết quả. Đừng đưa số chấm của file mẫu vào README hay CV.
+
 ### 10.4. Ghi vào README và đẩy
 
 Làm sau khi mọi người đã xong cả hai phần.
@@ -954,6 +1007,26 @@ số người, nên không cần giải thích thêm.
 `no [X] left in README`, rồi `main -> main`.
 
 Bấm Ctrl+C ở terminal đầu tiên để tắt giao diện.
+
+### 10.5. Chỉ khi cần: không tìm được người làm bài
+
+Không có người thật thì để README ghi rõ là chưa đo, đừng điền số. Dán:
+
+```bash
+cd /workspaces/legacylens
+python3 - <<'PY'
+from pathlib import Path
+p = Path("README.md"); s = p.read_text(encoding="utf-8")
+lines = [l if not l.startswith("| Người trả lời 20 câu") else
+         "| Người trả lời 20 câu, chỉ đọc code / dùng LegacyLens | Chưa đo: chưa có người làm bài. Phiếu và cách chấm ở `onboarding/` |"
+         for l in s.splitlines()]
+p.write_text("\n".join(lines) + "\n", encoding="utf-8"); print("đã ghi: chưa đo")
+PY
+git add README.md && git commit -qm "README: bài kiểm tra với người thật chưa đo" && git push
+```
+
+**Đúng khi:** in `đã ghi: chưa đo` rồi `main -> main`. Câu cho CV ở 12.5 tự bỏ phần bài kiểm tra khi chưa có
+`onboarding/ket_qua_bam_gio.csv`. Có người làm bài sau này thì làm 10.1-10.4 như bình thường, dòng này được ghi đè.
 
 ---
 
@@ -997,7 +1070,7 @@ echo "Số dòng còn [X]: $(grep -c '\[X\]' README.md)"
 make test lint check-gold 2>&1 | grep -E "passed|failed|All checks|gold rules"
 ```
 
-**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `49 passed` (hoặc `48 passed, 1 skipped`),
+**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `51 passed` (hoặc `50 passed, 1 skipped`),
 `All checks passed!`, `N/N gold rules pass`.
 
 **Nếu lỗi:** còn `[X]` thì xem bước nào chưa làm: dòng Precision là bước 7, dòng Người trả lời là bước 10. Lint báo
@@ -1220,7 +1293,7 @@ make lint
 make check-gold
 ```
 
-**Đúng khi:** `make test` in `49 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
+**Đúng khi:** `make test` in `51 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
 là số nhãn sau khi bạn duyệt.
 
 #### U5. Đẩy lên GitHub
@@ -1316,7 +1389,7 @@ make lint
 **Đúng khi:**
 
 - `make data` in `CardDemo @ 59cc6c2... -> data/carddemo`.
-- `make test` in `49 passed`.
+- `make test` in `51 passed`.
 - `make lint` in `All checks passed!` và `files already formatted`.
 
 **Nếu lỗi:** `make: python: No such file` thì chạy `make install PY=python3` và thêm `PY=python3` vào mọi lệnh
