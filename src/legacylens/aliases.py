@@ -68,3 +68,18 @@ def expand(question: str) -> str:
     names = sorted(_BY_NAME, key=len, reverse=True)
     pattern = re.compile(r"(?<![\w-])(" + "|".join(map(re.escape, names)) + r")(?![\w-])", re.I)
     return pattern.sub(lambda m: f"{_BY_NAME[m.group(1).lower()]} ({m.group(1).lower()})", question)
+
+
+def sample_questions(program: str, guide: str = "") -> list[str]:
+    """Questions to try for one program: the ones written for it in onboarding/CAU_HOI_MAU.md, then general ones."""
+    found: list[str] = []
+    section = re.search(rf"^### {re.escape(program)}\b.*?$(.*?)(?=^#|\Z)", guide, flags=re.M | re.S)
+    if section:
+        found += [m.strip() for m in re.findall(r"^- (.+)$", section.group(1), flags=re.M)]
+    found += [m.strip() for m in re.findall(rf"^\| {re.escape(program)} \| (.+?) \|$", guide, flags=re.M)]
+    general = [
+        f"What does {program} do for the business?",
+        f"Which files does {program} read and write?",
+        f"Which programs call {program}, and which programs can it transfer control to?",
+    ]
+    return found + [q for q in general if q not in found]

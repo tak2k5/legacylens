@@ -11,6 +11,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .citations import verify
+from .docgen import CARDDEMO_LINK
 from .evaluate import load_rules, score, to_markdown
 from .index import Index
 from .schema import BusinessRule, RuleSet
@@ -457,8 +458,7 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--lang", default="vi", choices=["vi", "en", "ja"])
     d.add_argument(  # data/ is not on GitHub: link to CardDemo at the pinned commit, so links work in the repo
         "--link-base",
-        default="https://github.com/aws-samples/aws-mainframe-modernization-carddemo/blob/"
-        "59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e/app/",
+        default=CARDDEMO_LINK,
     )
     d.set_defaults(fn=cmd_doc)
 

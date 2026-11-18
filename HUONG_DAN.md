@@ -81,7 +81,7 @@ cp -a /tmp/ll/legacylens/. .
 cp -a /tmp/giu/gold/. gold/ && cp /tmp/giu/README.md README.md
 for d in reports docs; do if [ -d /tmp/giu/$d ]; then cp -a /tmp/giu/$d/. $d/; fi; done
 if [ -f /tmp/giu/ket_qua_bam_gio.csv ]; then cp /tmp/giu/ket_qua_bam_gio.csv onboarding/; fi
-sed -i 's/# [0-9][0-9] test offline/# 51 test offline/' README.md
+sed -i 's/# [0-9][0-9] test offline/# 52 test offline/' README.md
 make install > /dev/null && make test | tail -1 && make check-gold | tail -1
 make graph > /dev/null && ls reports/graph.mmd
 make help | grep -E "readme|gold-ok"
@@ -90,7 +90,7 @@ echo "XONG"
 EOF
 ```
 
-**Đúng khi:** in `51 passed`, `N/N gold rules pass` với N là số nhãn của bạn, `reports/graph.mmd`, hai dòng
+**Đúng khi:** in `52 passed`, `N/N gold rules pass` với N là số nhãn của bạn, `reports/graph.mmd`, hai dòng
 `gold-ok` và `readme`, rồi `main -> main` và `XONG`. Kết quả chấm điểm (`reports/`), tài liệu sinh ra (`docs/`) và kết
 quả bấm giờ (`onboarding/`) cũng được giữ nguyên. Nếu in `DỪNG` hoặc dừng giữa chừng mà không có `XONG`, chưa có gì bị đẩy lên GitHub: gửi
 lại log trước khi làm tiếp.
@@ -849,19 +849,19 @@ Mỗi người làm 2 phần, 10 câu mỗi phần:
 
 ### 10.1. Mở giao diện
 
-**Ở đâu:** terminal Codespace. Làm 6.1 trước. Nếu 6.1 in `CHƯA NỐI ĐƯỢC` thì làm 6.2. Mục Ask gọi mô hình trên Colab,
+**Ở đâu:** terminal Codespace. Làm 6.1 trước. Nếu 6.1 in `CHƯA NỐI ĐƯỢC` thì làm 6.2. Mục Hỏi đáp gọi mô hình trên Colab,
 nên tab Colab phải mở suốt bài kiểm tra.
 
 ```bash
 cd /workspaces/legacylens
 export LEGACYLENS_ASK_MODE=$(python3 -c 'import json; print(json.load(open("reports/eval_qa.json"))["summary"].get("mode", "agent"))')
-echo "Mục Ask dùng cách: $LEGACYLENS_ASK_MODE (cách của lần hỏi đáp được chọn ở 8.5)"
+echo "Mục Hỏi đáp dùng cách: $LEGACYLENS_ASK_MODE (cách của lần hỏi đáp được chọn ở 8.5)"
 make ui
 ```
 
 Codespaces hiện thông báo cổng 8501, bấm **Open in Browser**. Terminal này giữ giao diện chạy, đừng đóng.
 
-**Đúng khi:** tab mới mở giao diện LegacyLens. Hỏi thử một câu ở mục Ask, phải ra câu trả lời có trích dẫn.
+**Đúng khi:** tab mới mở giao diện LegacyLens. Hỏi thử một câu ở mục Hỏi đáp, phải ra câu trả lời có trích dẫn.
 
 Mở terminal thứ hai bằng dấu `+` ở khung terminal. Các khối 10.2-10.4 dán vào terminal thứ hai này.
 
@@ -874,7 +874,7 @@ cd /workspaces/legacylens && date +%s > /tmp/bat_dau && echo "Bắt đầu lúc 
 ```
 
 - Phần chỉ đọc code: người làm bài dùng Explorer và Ctrl+Shift+F (tìm trong toàn bộ file).
-- Phần dùng LegacyLens: người làm bài gõ câu hỏi vào mục Ask của giao diện, đọc câu trả lời và trích dẫn.
+- Phần dùng LegacyLens: người làm bài gõ câu hỏi vào mục Hỏi đáp của giao diện, đọc câu trả lời và trích dẫn.
 
 Bạn ghi câu trả lời của họ ra giấy hoặc file nháp.
 
@@ -1070,7 +1070,7 @@ echo "Số dòng còn [X]: $(grep -c '\[X\]' README.md)"
 make test lint check-gold 2>&1 | grep -E "passed|failed|All checks|gold rules"
 ```
 
-**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `51 passed` (hoặc `50 passed, 1 skipped`),
+**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `52 passed` (hoặc `51 passed, 1 skipped`),
 `All checks passed!`, `N/N gold rules pass`.
 
 **Nếu lỗi:** còn `[X]` thì xem bước nào chưa làm: dòng Precision là bước 7, dòng Người trả lời là bước 10. Lint báo
@@ -1084,7 +1084,7 @@ Trước khi quay, làm 6.1 (Colab phải chạy cho phần hỏi đáp). Rồi 
 
 1. Terminal: dán `cd /workspaces/legacylens && make stats` (số chương trình, dòng code).
 2. Dán `code reports/graph.mmd` (đồ thị phụ thuộc).
-3. Dán `make ui`, bấm **Open in Browser**, hỏi một câu ở mục Ask, mở một trích dẫn.
+3. Dán `make ui`, bấm **Open in Browser**, hỏi một câu ở mục Hỏi đáp, mở một trích dẫn.
 4. Terminal thứ hai: dán `cd /workspaces/legacylens && code docs/generated/CBACT04C.ja.md`, bấm Ctrl+Shift+V.
 5. Dán `code README.md`, bấm Ctrl+Shift+V, kéo tới bảng Kết quả và bảng Các lần thử.
 
@@ -1293,7 +1293,7 @@ make lint
 make check-gold
 ```
 
-**Đúng khi:** `make test` in `51 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
+**Đúng khi:** `make test` in `52 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
 là số nhãn sau khi bạn duyệt.
 
 #### U5. Đẩy lên GitHub
@@ -1389,7 +1389,7 @@ make lint
 **Đúng khi:**
 
 - `make data` in `CardDemo @ 59cc6c2... -> data/carddemo`.
-- `make test` in `51 passed`.
+- `make test` in `52 passed`.
 - `make lint` in `All checks passed!` và `files already formatted`.
 
 **Nếu lỗi:** `make: python: No such file` thì chạy `make install PY=python3` và thêm `PY=python3` vào mọi lệnh

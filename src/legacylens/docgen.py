@@ -119,6 +119,9 @@ LABELS = {
     },
 }
 
+# CardDemo at the commit the gold labels were checked against; data/ is not on GitHub, so links point there
+CARDDEMO_LINK = "https://github.com/aws-samples/aws-mainframe-modernization-carddemo/blob/59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e/app/"
+
 
 def _esc(text: str | None) -> str:
     return (text or "").replace("|", "\\|").replace("\n", " ")

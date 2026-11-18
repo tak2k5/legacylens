@@ -649,3 +649,12 @@ def test_vietnamese_names_cover_every_program_and_expand_in_questions(idx):
     assert expand("them-giao-dich-x") == "them-giao-dich-x"  # only whole names
     if CARDDEMO.exists():
         assert set(ALIASES) == set(Index.build(CARDDEMO).programs)
+
+
+def test_sample_questions_come_from_the_guide_then_general_ones():
+    from legacylens.aliases import sample_questions
+
+    guide = "### COSGN00C: dang nhap\n\n- What does PF3 do?\n- Which file?\n\n## Khac\n\n| COUSR01C | Which fields are required? |\n"
+    assert sample_questions("COSGN00C", guide)[:2] == ["What does PF3 do?", "Which file?"]
+    assert sample_questions("COUSR01C", guide)[0] == "Which fields are required?"
+    assert sample_questions("XYZ")[0] == "What does XYZ do for the business?" and len(sample_questions("XYZ")) == 3
