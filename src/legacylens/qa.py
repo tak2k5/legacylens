@@ -20,6 +20,9 @@ class Question(BaseModel):
     question: str
     keywords: list[list[str]] = Field(description="All groups must match; any word in a group matches it")
     expected: list[Citation] = Field(default_factory=list)
+    program: str | None = Field(default=None, description="Bank questions: the one program the question is about")
+    topic: str | None = Field(default=None, description="Bank questions of the same kind; a paper has one at most")
+    bank_id: str | None = Field(default=None, description="On a drawn test paper: the id in onboarding/ngan_hang.jsonl")
 
 
 def load_questions(path: str | Path) -> list[Question]:

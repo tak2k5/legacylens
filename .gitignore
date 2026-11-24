@@ -7,3 +7,6 @@ __pycache__/
 data/
 out/
 reports/runs.jsonl
+
+# Câu trả lời của người làm bài kiểm tra: không đưa lên GitHub
+onboarding/tra_loi/

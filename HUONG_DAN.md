@@ -12,7 +12,7 @@ File riêng cho Kiet. Xóa trước khi để repo Public (bước 12).
 | 5.0 | Cập nhật repo lên bản zip mới | **Làm tiếp từ đây** (10 phút) |
 | 8 | Cải thiện: lần 2 cho trích rule và hỏi đáp, lần 3 (14B) nếu còn thời gian | 2-5 giờ |
 | 9 | Sinh tài liệu thiết kế vi/ja | 10-30 phút |
-| 10 | Bài kiểm tra bấm giờ với người thật | 1-2 giờ |
+| 10 | Bài kiểm tra bấm giờ với người thật (15-20 người) | 1-2 buổi tối |
 | 11 | Kiểm tra lại lỗi CBACT04C | 15 phút |
 | 12 | Hoàn tất: README, video, Public, CV | 1-2 giờ |
 
@@ -72,7 +72,7 @@ unzip -tq legacylens.zip > /dev/null
 git add -A; git commit -qm "Lưu trước khi cập nhật" || true
 rm -rf /tmp/giu /tmp/ll && mkdir -p /tmp/giu && cp -a gold README.md /tmp/giu/
 for d in reports docs; do if [ -d $d ]; then cp -a $d /tmp/giu/; fi; done
-if [ -f onboarding/ket_qua_bam_gio.csv ]; then cp onboarding/ket_qua_bam_gio.csv /tmp/giu/; fi
+for f in ket_qua_bam_gio.csv bai_lam.csv tra_loi; do if [ -e onboarding/$f ]; then cp -a onboarding/$f /tmp/giu/; fi; done
 unzip -q legacylens.zip -d /tmp/ll && test -f /tmp/ll/legacylens/Makefile
 rm legacylens.zip
 git rm -r -q --cached data 2>/dev/null || true
@@ -80,8 +80,8 @@ git ls-files -z | xargs -0 rm -f
 cp -a /tmp/ll/legacylens/. .
 cp -a /tmp/giu/gold/. gold/ && cp /tmp/giu/README.md README.md
 for d in reports docs; do if [ -d /tmp/giu/$d ]; then cp -a /tmp/giu/$d/. $d/; fi; done
-if [ -f /tmp/giu/ket_qua_bam_gio.csv ]; then cp /tmp/giu/ket_qua_bam_gio.csv onboarding/; fi
-sed -i 's/# [0-9][0-9] test offline/# 52 test offline/' README.md
+for f in ket_qua_bam_gio.csv bai_lam.csv tra_loi; do if [ -e /tmp/giu/$f ]; then cp -a /tmp/giu/$f onboarding/; fi; done
+sed -i 's/# [0-9][0-9] test offline/# 63 test offline/' README.md
 make install > /dev/null && make test | tail -1 && make check-gold | tail -1
 make graph > /dev/null && ls reports/graph.mmd
 make help | grep -E "readme|gold-ok"
@@ -90,7 +90,7 @@ echo "XONG"
 EOF
 ```
 
-**Đúng khi:** in `52 passed`, `N/N gold rules pass` với N là số nhãn của bạn, `reports/graph.mmd`, hai dòng
+**Đúng khi:** in `63 passed`, `N/N gold rules pass` với N là số nhãn của bạn, `reports/graph.mmd`, hai dòng
 `gold-ok` và `readme`, rồi `main -> main` và `XONG`. Kết quả chấm điểm (`reports/`), tài liệu sinh ra (`docs/`) và kết
 quả bấm giờ (`onboarding/`) cũng được giữ nguyên. Nếu in `DỪNG` hoặc dừng giữa chừng mà không có `XONG`, chưa có gì bị đẩy lên GitHub: gửi
 lại log trước khi làm tiếp.
@@ -834,101 +834,210 @@ hỏng). Phần đã dịch được giữ, chỉ phần lỗi được dịch l
 
 ---
 
-## Bước 10. Bài kiểm tra bấm giờ với người thật (1-2 giờ)
+## Bước 10. Bài kiểm tra bấm giờ với người thật (bạn mất 1-2 buổi tối, mỗi người làm bài khoảng 40 phút)
 
-Bạn đã thuộc code sau bước 4, nên bạn tự làm bài thì kết quả bị lệch. Nhờ 1-2 người biết lập trình nhưng chưa đọc
-CardDemo. Bạn điều khiển Codespace và chia sẻ màn hình (Google Meet, Zalo, ...). Người làm bài đọc và nói câu trả lời,
-bạn ghi lại.
+Bạn đã thuộc code sau bước 4, nên bạn tự làm bài thì kết quả bị lệch. Nhờ 15-20 người biết lập trình nhưng chưa đọc
+CardDemo (tối đa 30). Họ tự làm trên mục **📝 Bài kiểm tra** của giao diện, ở máy họ: không cần chia sẻ màn hình hay bấm giờ
+tay. Giao diện tự bấm giờ từng phần, có đồng hồ đếm ngược (mặc định 15 phút mỗi phần, người làm bài chọn được), và tự
+lưu câu trả lời. Hết giờ thì trang báo đỏ nhưng không khóa bài: thời gian thật vẫn được ghi, nên số đo không bị cắt.
 
-Mỗi người làm 2 phần, 10 câu mỗi phần:
+Mỗi người có một **số thứ tự** do bạn phát, làm 2 phần, 10 câu mỗi phần. Đề của mỗi người là 20 câu rút ngẫu nhiên
+từ ngân hàng `onboarding/ngan_hang.jsonl` (240 câu, 24 chương trình, 10 câu mỗi chương trình). Trong một đề, mỗi câu
+thuộc một chương trình khác nhau, nên không có hai câu hỏi về cùng một chương trình. Đề cố định theo số thứ tự: người làm
+bài tải lại trang vẫn thấy đúng đề cũ. Dưới mỗi câu có tên chương trình, ghi chú đầu file và nút **Xem toàn bộ mã nguồn**.
+Giao diện tự chia phần như sau:
 
 | Người | Phần 1: chỉ đọc code | Phần 2: dùng LegacyLens |
 | --- | --- | --- |
-| Người 1 | Q01-Q10 | Q11-Q20 |
-| Người 2 (nếu có) | Q11-Q20 | Q01-Q10 |
+| Số lẻ (1, 3, 5, ...) | Q01-Q10 | Q11-Q20 |
+| Số chẵn (2, 4, 6, ...) | Q11-Q20 | Q01-Q10 |
 
-### 10.1. Mở giao diện
+Phát số liên tục từ 1. Vì mỗi người một đề, câu khó hay dễ rơi vào phần nào là ngẫu nhiên; càng nhiều người thì độ lệch
+đó càng nhỏ, nên cố mời đủ 15-20 người. Phần "chỉ đọc code" cố ý không có agent: đó là mốc để so sánh. Làm xong cả hai
+phần thì người làm bài được hỏi agent thoải mái.
 
-**Ở đâu:** terminal Codespace. Làm 6.1 trước. Nếu 6.1 in `CHƯA NỐI ĐƯỢC` thì làm 6.2. Mục Hỏi đáp gọi mô hình trên Colab,
-nên tab Colab phải mở suốt bài kiểm tra.
+**Hẹn theo đợt, mỗi đợt 3-4 người cùng lúc.** Mô hình trên Colab trả lời từng câu một. Mười người cùng hỏi ở phần 2 thì
+phải xếp hàng chờ, và thời gian chờ đó bị tính thành "dùng LegacyLens chậm", làm số đo sai lệch. Codespace và Colab cũng
+phải mở suốt mỗi đợt, nên gom 15-20 người vào 1-2 buổi tối, chia 4-5 đợt, mỗi đợt khoảng 40 phút.
+
+### 10.0. Đọc soát ngân hàng câu hỏi (khoảng 1 giờ, làm một lần, không cần Colab)
+
+240 câu trong ngân hàng do AI soạn nháp từ mã nguồn. Test ở bước 5 đã kiểm tra tự động rằng đáp án của từng câu có trong
+đúng các dòng code được trích, nhưng chỉ người đọc mới biết câu hỏi có rõ nghĩa không. Khối này in ngẫu nhiên 1 câu của mỗi
+chương trình (24 câu), kèm đáp án và các dòng code. Dán ở terminal Codespace:
+
+```bash
+cd /workspaces/legacylens
+PYTHONPATH=src python3 - <<'PY'
+import random
+from legacylens.index import Index
+from legacylens.qa import load_questions
+idx = Index.build("data/carddemo/app")
+by = {}
+for q in load_questions("onboarding/ngan_hang.jsonl"):
+    by.setdefault(q.program, []).append(q)
+for prog in sorted(by):
+    q = random.choice(by[prog])
+    e = q.expected[0]
+    print(f"\n===== {q.id}: {q.question}")
+    print("Đáp án phải có:", "; ".join(" hoặc ".join(g) for g in q.keywords))
+    for n, t in idx.read_lines(idx.program(prog).path, e.start_line, e.end_line):
+        print(f"{n:>5}: {t.rstrip()}")
+PY
+```
+
+Đọc từng câu: câu hỏi có hỏi đúng điều mà dòng code nói không, và người mới đọc có hiểu câu hỏi không. Thấy câu nào sai
+hay khó hiểu, mở `onboarding/ngan_hang.jsonl`, tìm mã câu (ví dụ `COSGN00C-03`), sửa chữ trong `"question"` hoặc
+`"keywords"`, rồi dán `make test`. Nếu không sửa được thì xóa cả dòng đó và gửi mình mã câu: mỗi chương trình cần đủ 10
+câu thì test mới qua.
+
+**Đúng khi:** đã đọc 24 câu, và `make test` vẫn in `63 passed` nếu bạn có sửa.
+
+Khi ghi vào CV hay trả lời phỏng vấn, nói đúng như vậy: ngân hàng câu hỏi do AI soạn nháp, có test kiểm tra tự động với
+mã nguồn, và bạn đọc soát một phần.
+
+### 10.1. Mở giao diện và lấy link cho người làm bài
+
+**Ở đâu:** terminal Codespace. Làm 6.1 trước. Nếu 6.1 in `CHƯA NỐI ĐƯỢC` thì làm 6.2. Phần 2 của bài gọi mô hình trên
+Colab, nên tab Colab phải mở suốt lúc người làm bài làm phần 2.
+
+1. Để Codespace không tự tắt khi bạn không gõ gì: mở github.com/settings/codespaces, mục **Default idle timeout**, đổi
+   thành **240** phút, bấm **Save**.
+2. Dán khối này:
 
 ```bash
 cd /workspaces/legacylens
 export LEGACYLENS_ASK_MODE=$(python3 -c 'import json; print(json.load(open("reports/eval_qa.json"))["summary"].get("mode", "agent"))')
 echo "Mục Hỏi đáp dùng cách: $LEGACYLENS_ASK_MODE (cách của lần hỏi đáp được chọn ở 8.5)"
+grep -q '^LEGACYLENS_GRADE_PIN=' .env || echo "LEGACYLENS_GRADE_PIN=$(shuf -i 1000-9999 -n 1)" >> .env
+grep -q '^LEGACYLENS_EXAM_SEED=' .env || echo "LEGACYLENS_EXAM_SEED=$(shuf -i 100000-999999 -n 1)" >> .env
+echo "Mã chấm bài (chỉ bạn biết, đừng gửi cho người làm bài): $(grep '^LEGACYLENS_GRADE_PIN=' .env | cut -d= -f2)"
 make ui
 ```
 
-Codespaces hiện thông báo cổng 8501, bấm **Open in Browser**. Terminal này giữ giao diện chạy, đừng đóng.
+3. Trong Codespace, mở tab **PORTS** (cạnh tab TERMINAL). Bấm chuột phải vào dòng cổng **8501** > **Port Visibility** >
+   **Public**. Rồi chuột phải lần nữa > **Copy Local Address**. Đó là link gửi cho người làm bài.
+4. Dán link đó vào một cửa sổ ẩn danh của trình duyệt (Ctrl+Shift+N) để kiểm tra người ngoài mở được.
 
-**Đúng khi:** tab mới mở giao diện LegacyLens. Hỏi thử một câu ở mục Hỏi đáp, phải ra câu trả lời có trích dẫn.
+Khối cũng tạo số `LEGACYLENS_EXAM_SEED` trong `.env`: số này quyết định đề của từng người, nên đề của bạn khác đề của
+người khác dùng repo này. Đừng đổi số này khi đang có người làm bài. Terminal này giữ giao diện chạy, đừng đóng. Mở terminal thứ hai bằng dấu `+` cho các khối sau.
 
-Mở terminal thứ hai bằng dấu `+` ở khung terminal. Các khối 10.2-10.4 dán vào terminal thứ hai này.
+**Đúng khi:** cửa sổ ẩn danh mở được giao diện LegacyLens, có mục **📝 Bài kiểm tra**. Hỏi thử một câu ở mục Hỏi đáp,
+phải ra câu trả lời có trích dẫn.
 
-### 10.2. Bấm giờ bắt đầu một phần
+### 10.1b. Chỉ khi cần: gửi bản sao bài làm về email người làm bài
 
-Mở `onboarding/BAI_KIEM_TRA.md` cho người làm bài xem câu hỏi. Ngay trước câu đầu tiên của phần, dán:
+Không bắt buộc. Không làm mục này thì ô email trong bài kiểm tra bị khóa, và người làm bài vẫn bấm **Tải bài làm về
+máy** được sau khi nộp. Email người làm bài gõ chỉ dùng để gửi một lần, không được lưu.
 
-```bash
-cd /workspaces/legacylens && date +%s > /tmp/bat_dau && echo "Bắt đầu lúc $(date +%H:%M:%S)"
-```
-
-- Phần chỉ đọc code: người làm bài dùng Explorer và Ctrl+Shift+F (tìm trong toàn bộ file).
-- Phần dùng LegacyLens: người làm bài gõ câu hỏi vào mục Hỏi đáp của giao diện, đọc câu trả lời và trích dẫn.
-
-Bạn ghi câu trả lời của họ ra giấy hoặc file nháp.
-
-### 10.3. Bấm giờ kết thúc, chấm và lưu
-
-Ngay sau câu cuối của phần, dán:
+1. Gmail của bạn cần bật xác minh 2 bước. Mở myaccount.google.com/apppasswords, đặt tên `LegacyLens`, bấm **Create**,
+   chép mật khẩu 16 ký tự.
+2. Ở terminal thứ hai, dán khối này. Khi được hỏi, gõ Gmail và dán mật khẩu ứng dụng (mật khẩu không hiện trên màn hình):
 
 ```bash
 cd /workspaces/legacylens
-cat > /tmp/xong_phan.sh <<'EOF'
-giay=$(( $(date +%s) - $(cat /tmp/bat_dau) ))
-echo ""
-echo "Thời gian phần này: $((giay / 60)) phút $((giay % 60)) giây"
-read -rp ">>> Người số mấy (1 hoặc 2): " N
-read -rp ">>> Cách làm (1 = chỉ đọc code, 2 = dùng LegacyLens): " C
-case "$N$C" in 11|22) Q="Q01-Q10";; 12|21) Q="Q11-Q20";; *) echo "DỪNG: chỉ gõ 1 hoặc 2. Dán lại khối này (giờ vẫn giữ)."; exit 1;; esac
-echo ""
-echo "Đáp án $Q. Một câu đúng khi câu trả lời có đủ mọi nhóm từ khóa (mỗi nhóm chỉ cần một từ):"
-python3 - "$Q" <<'PY'
-import json, sys
-a, b = (1, 10) if sys.argv[1] == "Q01-Q10" else (11, 20)
-for line in open("onboarding/questions.jsonl"):
-    q = json.loads(line)
-    if a <= int(q["id"][1:]) <= b:
-        kw = "; ".join(" hoặc ".join(g) for g in q["keywords"])
-        where = ", ".join(f"{e['program']} dòng {e['start_line']}-{e['end_line']}" for e in q["expected"]) or "-"
-        print(f"  {q['id']}: phải có [{kw}]  (code: {where})")
-PY
-read -rp ">>> Số câu đúng trên 10: " D
-case "$D" in [0-9]|10) ;; *) echo "DỪNG: gõ một số từ 0 đến 10. Dán lại khối này (giờ vẫn giữ)."; exit 1;; esac
-test -f onboarding/ket_qua_bam_gio.csv || echo "nguoi,cach,cau,giay,dung" > onboarding/ket_qua_bam_gio.csv
-echo "$N,$C,$Q,$giay,$D" >> onboarding/ket_qua_bam_gio.csv
-echo "đã lưu: người $N, cách $C, $Q, $giay giây, đúng $D/10"
+cat > /tmp/email.sh <<'EOF'
+read -rp ">>> Gmail dùng để gửi: " U
+read -rsp ">>> Mật khẩu ứng dụng 16 ký tự (không hiện khi gõ): " P; echo ""
+case "$U" in *@*) ;; *) echo "DỪNG: Gmail không hợp lệ. Dán lại khối này."; exit 1;; esac
+grep -v '^SMTP_' .env > /tmp/env_moi; printf 'SMTP_USER=%s\nSMTP_PASSWORD=%s\n' "$U" "${P// /}" >> /tmp/env_moi && mv /tmp/env_moi .env
+git check-ignore -q .env && echo "đã lưu vào .env (không bị đẩy lên GitHub)"
 EOF
-bash /tmp/xong_phan.sh
+bash /tmp/email.sh
 ```
 
-Thời gian được tính ngay khi bạn dán, nên trả lời câu hỏi chậm cũng không tính thêm giờ.
+3. Ở terminal đầu tiên, bấm Ctrl+C rồi dán lại khối ở bước 2 của 10.1 để giao diện đọc cấu hình mới.
 
-**Đúng khi:** in `đã lưu: ...`.
+**Đúng khi:** in `đã lưu vào .env (không bị đẩy lên GitHub)`, và ô email trong mục Bài kiểm tra không còn bị khóa.
 
-Mỗi phần chỉ dán 10.3 một lần. Nếu lỡ dán hai lần cho cùng một phần, gửi log cho mình trước khi làm 10.4.
+### 10.2. Gửi link cho người làm bài
 
-Lặp lại 10.2 và 10.3 cho mỗi phần: người 1 phần 1, người 1 phần 2, rồi người 2 nếu có. Mỗi người làm 2 phần là đủ.
+Gửi riêng cho từng người qua Zalo hay email. Đổi `<link>` thành link ở 10.1 và `<số>` thành số thứ tự của người đó
+(người đầu tiên là 1, người thứ hai là 2, ...). Tự ghi lại ai nhận số nào, ghi ra giấy hay vào ghi chú điện thoại, đừng lưu
+trong repo:
+
+```text
+Chào bạn, mình nhờ bạn làm một bài kiểm tra nhỏ cho đồ án (khoảng 40 phút, làm liền một mạch):
+<link>
+Mở mục "📝 Bài kiểm tra", ô "Số thứ tự của bạn" gõ <số>, rồi làm lần lượt phần 1 và phần 2.
+Phần 1 chỉ đọc code (code hiện ngay dưới mỗi câu), phần 2 dùng công cụ. Đồng hồ tự chạy, không cần vội, trả lời ngắn là được.
+Đừng tải lại trang khi đang làm. Cảm ơn bạn nhiều!
+```
+
+Trong lúc họ làm, giữ Codespace và tab Colab mở. Muốn xem ai đã nộp, dán:
+
+```bash
+cd /workspaces/legacylens && cat onboarding/bai_lam.csv 2>/dev/null || echo "chưa ai nộp"
+```
+
+Mỗi dòng là một phần đã nộp: người, cách (1 = chỉ đọc code, 2 = dùng LegacyLens), câu, số giây.
+
+### 10.3. Chấm bài đã nộp
+
+Làm khi đã có ít nhất một phần nộp. Mô hình chấm từng câu và ghi lý do, nên tab Colab phải đang chạy. Dán ở terminal
+thứ hai:
+
+```bash
+cd /workspaces/legacylens
+cat > /tmp/cham_bai.sh <<'EOF'
+set -a; . ./.env; set +a
+curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
+test -f onboarding/bai_lam.csv || { echo "Chưa ai nộp bài. Làm 10.2 trước."; exit 0; }
+test -f onboarding/ket_qua_bam_gio.csv || echo "nguoi,cach,cau,giay,dung" > onboarding/ket_qua_bam_gio.csv
+python3 - > /tmp/can_cham <<'PY'
+import csv
+done = {(r["nguoi"], r["cach"]) for r in csv.DictReader(open("onboarding/ket_qua_bam_gio.csv"))}
+for r in csv.DictReader(open("onboarding/bai_lam.csv")):
+    if (r["nguoi"], r["cach"]) not in done:
+        print(r["nguoi"], r["cach"], r["cau"], r["giay"], r["file"])
+PY
+test -s /tmp/can_cham || { echo "Không còn phần nào chờ chấm."; exit 0; }
+while read -r N C Q G F <&3; do
+  echo ""
+  echo "===== Người $N, cách $C ($([ "$C" = 1 ] && echo "chỉ đọc code" || echo "dùng LegacyLens")), $Q, $((G / 60)) phút $((G % 60)) giây"
+  echo "Mô hình đang chấm 10 câu (vài phút)..."
+  make grade F="onboarding/$F" PART="$Q" | grep -E '^\| Q|^Mô hình chấm' | tee /tmp/bang_cham
+  GOI_Y=$(sed -n 's/^Mô hình chấm đúng \([0-9]*\)\/10.*/\1/p' /tmp/bang_cham)
+  read -rp ">>> Số câu đúng trên 10 sau khi bạn đọc lý do (Enter = đồng ý với mô hình: $GOI_Y): " D
+  D=${D:-$GOI_Y}
+  case "$D" in [0-9]|10) ;; *) echo "DỪNG: gõ một số từ 0 đến 10. Dán lại khối này, các phần đã chấm được giữ."; exit 1;; esac
+  echo "$N,$C,$Q,$G,$D" >> onboarding/ket_qua_bam_gio.csv
+  echo "đã lưu: người $N, cách $C, $Q, đúng $D/10"
+done 3< /tmp/can_cham
+EOF
+bash /tmp/cham_bai.sh
+```
+
+Với mỗi phần chưa chấm, khối in bảng chấm: mỗi câu có kết quả mô hình chấm (`đúng`, `sai`, hoặc `?` khi mô hình không
+trả lời được), lý do bằng tiếng Việt, và cột từ khóa của đáp án. Câu trả lời tiếng Việt đúng ý vẫn có thể thiếu từ
+khóa tiếng Anh, nên hãy tin cột lý do hơn. Mô hình chỉ gợi ý: bạn đọc lý do, thấy mô hình chấm sai câu nào thì gõ số
+câu đúng của bạn, thấy hợp lý thì bấm Enter. Bảng chấm đầy đủ được lưu ở `onboarding/tra_loi/*.cham.md`.
+
+Mỗi phần mất vài phút, nên 20 người (40 phần) mất khoảng 2-3 giờ. Chấm sau mỗi đợt cho đỡ dồn. Đang chấm mà phải dừng thì
+bấm Ctrl+C: các phần đã lưu được giữ, dán lại khối này thì nó chấm tiếp các phần còn lại.
+
+**Đúng khi:** mỗi phần in `đã lưu: ...`, cuối cùng là `Không còn phần nào chờ chấm.` khi dán lại. Dán lại khối này mỗi
+khi có thêm người nộp. Khi đủ cả hai cách (chỉ đọc code và dùng LegacyLens), làm 10.4.
+
+Câu trả lời của người làm bài nằm trong `onboarding/tra_loi/`, không bị đẩy lên GitHub. Chỉ số phút và số câu đúng
+được đẩy.
 
 ### 10.3b. Chỉ khi cần: người làm bài gửi câu trả lời bằng file
 
-Dùng mục này thay cho 10.2 và 10.3 khi người làm bài tự làm ở máy họ, rồi gửi file câu trả lời và tự bấm giờ. Mô hình
+Dùng mục này khi người làm bài không mở được link, tự làm trên file rồi gửi lại cho bạn, kèm số phút đã làm. Mô hình
 chấm từng câu và ghi lý do, nên tab Colab phải đang chạy.
 
-1. Chép câu trả lời sang một file `.txt`, mỗi câu bắt đầu bằng mã câu (`Q01: ...`, viết nhiều dòng cũng được). Hỏi người
-   làm bài **tổng số phút** đã làm phần đó.
-2. Dán `mkdir -p /workspaces/legacylens/onboarding/tra_loi`, rồi kéo thả file vào thư mục `onboarding/tra_loi`, đặt tên
-   dạng `nguoi1_phan1.txt`.
+1. Tạo đề cho người đó. Đổi `3` thành số thứ tự của họ:
+
+   ```bash
+   cd /workspaces/legacylens && make paper N=3
+   ```
+
+   Lệnh ghi 3 file vào `onboarding/tra_loi/`: `de_nguoi3.md` (đề 20 câu), `nguoi3_phan1.txt` và `nguoi3_phan2.txt` (file
+   trả lời, dòng `Đề:` ở đầu cho biết câu nào trong ngân hàng, đừng xóa dòng này). Chuột phải từng file > **Download**,
+   gửi cả 3 file cho người làm bài, kèm link mã nguồn CardDemo trên GitHub cho phần chỉ đọc code.
+2. Người làm bài điền câu trả lời sau mỗi `Qnn:` (viết nhiều dòng cũng được) và gửi lại hai file, kèm **tổng số phút**
+   đã làm mỗi phần. Kéo thả hai file đó vào thư mục `onboarding/tra_loi`, ghi đè file cũ cùng tên.
 3. Dán khối này và trả lời các câu hỏi hiện ra:
 
 ```bash
@@ -937,19 +1046,22 @@ cat > /tmp/cham_file.sh <<'EOF'
 set -a; . ./.env; set +a
 curl -sf -m 20 "$LLM_BASE_URL/models" > /dev/null || { echo "DỪNG: chưa nối được Colab. Làm 6.2 rồi dán lại khối này."; exit 1; }
 echo ""
-read -rp ">>> Tên file trong onboarding/tra_loi/ (ví dụ nguoi1_phan1.txt): " F
+read -rp ">>> Tên file trong onboarding/tra_loi/ (ví dụ nguoi3_phan1.txt): " F
 F="onboarding/tra_loi/${F##*/}"
 test -f "$F" || { echo "DỪNG: không thấy $F. Kéo thả file vào thư mục onboarding/tra_loi rồi dán lại khối này."; exit 1; }
 if head -c 500 "$F" | grep -q "MẪU THỬ"; then echo "DỪNG: đây là file mẫu, không phải câu trả lời thật. Không ghi vào kết quả."; exit 1; fi
-read -rp ">>> Người số mấy (1 hoặc 2): " N
+read -rp ">>> Số thứ tự của người làm bài (1 đến 30): " N
 read -rp ">>> Cách làm (1 = chỉ đọc code, 2 = dùng LegacyLens): " C
-case "$N$C" in 11|22) Q="Q01-Q10";; 12|21) Q="Q11-Q20";; *) echo "DỪNG: chỉ gõ 1 hoặc 2. Dán lại khối này."; exit 1;; esac
+case "$N" in [1-9]|[12][0-9]|30) ;; *) echo "DỪNG: số thứ tự từ 1 đến 30. Dán lại khối này."; exit 1;; esac
+case "$(( N % 2 ))$C" in 11|02) Q="Q01-Q10";; 12|01) Q="Q11-Q20";; *) echo "DỪNG: cách làm chỉ gõ 1 hoặc 2. Dán lại khối này."; exit 1;; esac
 if grep -q "^$N,$C,$Q," onboarding/ket_qua_bam_gio.csv 2>/dev/null; then echo "DỪNG: người $N cách $C đã có trong onboarding/ket_qua_bam_gio.csv. Gửi log cho mình."; exit 1; fi
 read -rp ">>> Tổng thời gian làm phần này, tính bằng phút (ví dụ 25): " M
 case "$M" in ''|*[!0-9]*) echo "DỪNG: gõ một số nguyên. Dán lại khối này."; exit 1;; esac
 echo "Mô hình đang chấm 10 câu (vài phút)..."
-make grade F="$F" PART="$Q" | grep -E '^\| Q|^Mô hình chấm|^wrote'
-read -rp ">>> Số câu đúng trên 10, sau khi bạn đọc lý do và tự quyết: " D
+make grade F="$F" PART="$Q" | grep -E '^\| Q|^Mô hình chấm|^wrote' | tee /tmp/bang_cham
+GOI_Y=$(sed -n 's/^Mô hình chấm đúng \([0-9]*\)\/10.*/\1/p' /tmp/bang_cham)
+read -rp ">>> Số câu đúng trên 10 sau khi bạn đọc lý do (Enter = đồng ý với mô hình: $GOI_Y): " D
+D=${D:-$GOI_Y}
 case "$D" in [0-9]|10) ;; *) echo "DỪNG: gõ một số từ 0 đến 10. Dán lại khối này."; exit 1;; esac
 test -f onboarding/ket_qua_bam_gio.csv || echo "nguoi,cach,cau,giay,dung" > onboarding/ket_qua_bam_gio.csv
 echo "$N,$C,$Q,$((M * 60)),$D" >> onboarding/ket_qua_bam_gio.csv
@@ -966,45 +1078,56 @@ Mô hình chỉ gợi ý: bạn đọc lý do, rồi tự gõ số câu đúng c
 **Đúng khi:** in bảng chấm, rồi `đã lưu: người ..., cách ..., ... phút, đúng .../10`. Mỗi phần chấm một lần. Khi đủ cả
 hai cách, làm 10.4.
 
-10.4 đẩy cả thư mục `onboarding/tra_loi` lên GitHub. Nếu người làm bài không muốn công khai câu trả lời, dán
-`rm -r onboarding/tra_loi` trước khi làm 10.4.
+Thư mục `onboarding/tra_loi` không bị đẩy lên GitHub.
 
-**Thử lệnh chấm trước khi có người thật:** thư mục `onboarding/mau_thu` có 3 file mẫu do AI viết, có dòng `MẪU THỬ` ở
-đầu. Dán `make grade F=onboarding/mau_thu/sv_c_tieng_viet.txt PART=Q01-Q10` để xem mô hình chấm ra sao. Khối ở trên từ
-chối ghi các file này vào kết quả. Đừng đưa số chấm của file mẫu vào README hay CV.
+**Chấm file trên giao diện:** mục **📝 Bài kiểm tra** có khung **📤 Chấm file câu trả lời**. Gõ mã chấm bài mà khối 10.1
+in ra, kéo thả file `.txt` vào, bấm **Chấm bằng mô hình**. Giao diện tự đoán phần Q01-Q10 hay Q11-Q20, hiện bảng chấm và
+cho tải bảng về. File nộp trên giao diện hay tạo bằng `make paper` có dòng `Đề:`, nên được chấm theo đúng đề của người
+đó; file không có dòng này (như file mẫu) được chấm theo 20 câu cố định ở `onboarding/questions.jsonl`. Với file thật, bấm **Lưu file vào onboarding/tra_loi** rồi làm khối ở trên để ghi kết quả. Mã chấm bài
+giữ cho người làm bài không xem được lý do chấm, vì lý do chấm để lộ đáp án.
 
-### 10.4. Ghi vào README và đẩy
+**Thử chấm trước khi có người thật:** thư mục `onboarding/mau_thu` có 3 file mẫu do AI viết, có dòng `MẪU THỬ` ở đầu. Kéo
+thả một file vào khung chấm trên giao diện, hoặc dán `make grade F=onboarding/mau_thu/sv_c_tieng_viet.txt PART=Q01-Q10`.
+Cả giao diện và khối ở trên đều từ chối ghi các file này vào kết quả. Đừng đưa số chấm của file mẫu vào README hay CV.
 
-Làm sau khi mọi người đã xong cả hai phần.
+### 10.4. Ghi vào README, vẽ biểu đồ và đẩy
+
+Làm sau khi mọi người đã xong cả hai phần và đã chấm ở 10.3. Trước đó bạn vẫn xem được kết quả tạm ở khung **📊 Kết quả**
+trong mục Bài kiểm tra.
 
 ```bash
 cd /workspaces/legacylens
-python3 - <<'PY'
-import csv, subprocess
-rows = list(csv.DictReader(open("onboarding/ket_qua_bam_gio.csv")))
-def part(c):
-    rs = [r for r in rows if r["cach"] == c]
-    phut = sum(int(r["giay"]) for r in rs) / 60 / (10 * len(rs))
-    return round(phut, 1), f"{sum(int(r['dung']) for r in rs)}/{10 * len(rs)}", len(rs)
-read_min, read_ok, n1 = part("1")
-tool_min, tool_ok, n2 = part("2")
-people = len({r["nguoi"] for r in rows})
-print(f"Chỉ đọc code: {read_min} phút mỗi câu, đúng {read_ok}")
-print(f"Dùng LegacyLens: {tool_min} phút mỗi câu, đúng {tool_ok}")
-if n1 != n2:
-    raise SystemExit("DỪNG: số phần đọc code và số phần dùng LegacyLens khác nhau. Làm nốt phần còn thiếu ở 10.2-10.3.")
-subprocess.run(["make", "readme", f"READ_MIN={read_min}", f"TOOL_MIN={tool_min}", f"READ_OK={read_ok}",
-                f"TOOL_OK={tool_ok}", f"PEOPLE={people} người, 10 câu mỗi cách"], check=True)
+PYTHONPATH=src python3 - <<'PY'
+import subprocess
+from pathlib import Path
+from legacylens.exam import READ, TOOL, report_markdown, summary
+s = summary("onboarding/ket_qua_bam_gio.csv")
+if s is None:
+    raise SystemExit("DỪNG: chưa có kết quả của cả hai cách. Làm 10.3 trước.")
+r, t = s[READ], s[TOOL]
+print(f"Chỉ đọc code: {r['phut_moi_cau']} phút mỗi câu, đúng {r['dung']}/{r['tong']}")
+print(f"Dùng LegacyLens: {t['phut_moi_cau']} phút mỗi câu, đúng {t['dung']}/{t['tong']}")
+print(f"{s['paired']} người làm đủ hai cách: {s['faster']} người nhanh hơn, {s['better']} người đúng nhiều hơn khi dùng LegacyLens")
+if s["paired"] != s["nguoi"]:
+    raise SystemExit("DỪNG: có người mới làm một phần. Đợi họ làm nốt rồi làm 10.3, hoặc gửi log cho mình.")
+Path("reports/bai_kiem_tra.md").write_text(report_markdown(s), encoding="utf-8")
+print("đã vẽ: reports/bai_kiem_tra.md")
+subprocess.run(["make", "readme", f"READ_MIN={r['phut_moi_cau']}", f"TOOL_MIN={t['phut_moi_cau']}",
+                f"READ_OK={r['dung']}/{r['tong']}", f"TOOL_OK={t['dung']}/{t['tong']}",
+                f"PEOPLE={s['nguoi']} người, 10 câu mỗi cách, biểu đồ ở [reports/bai_kiem_tra.md](reports/bai_kiem_tra.md)"],
+               check=True)
 PY
 git add -A
-if git diff --cached --name-only --diff-filter=AM | grep -E '^(\.env|data/)'; then echo "DỪNG: có file không được đẩy. Gửi log cho mình."; else git commit -qm "Kết quả bài kiểm tra onboarding bấm giờ" && git push; fi
+if git diff --cached --name-only --diff-filter=AM | grep -E '^(\.env|data/|onboarding/tra_loi/)'; then echo "DỪNG: có file không được đẩy. Gửi log cho mình."; else git commit -qm "Kết quả bài kiểm tra onboarding bấm giờ" && git push; fi
 ```
 
-Khối tự tính phút **mỗi câu** (tổng thời gian chia số câu) và cộng số câu đúng của mọi người. Mẫu nhỏ thì README ghi rõ
-số người, nên không cần giải thích thêm.
+Khối tính phút **mỗi câu** (tổng thời gian chia số câu) và cộng số câu đúng của mọi người, rồi vẽ 3 biểu đồ vào
+`reports/bai_kiem_tra.md`: phút mỗi câu, tỉ lệ câu đúng, và phút mỗi câu của từng người. GitHub tự vẽ các biểu đồ này khi
+mở file. README ghi số người và link tới file biểu đồ.
 
-**Đúng khi:** in hai dòng `Chỉ đọc code` và `Dùng LegacyLens`, `updated: Bài kiểm tra với người thật`,
-`no [X] left in README`, rồi `main -> main`.
+**Đúng khi:** in ba dòng `Chỉ đọc code`, `Dùng LegacyLens`, `... người làm đủ hai cách`, rồi `đã vẽ: reports/bai_kiem_tra.md`,
+`updated: Bài kiểm tra với người thật`, `no [X] left in README`, `main -> main`. Mở repo trên GitHub, bấm vào
+`reports/bai_kiem_tra.md`: thấy 3 biểu đồ cột.
 
 Bấm Ctrl+C ở terminal đầu tiên để tắt giao diện.
 
@@ -1070,7 +1193,7 @@ echo "Số dòng còn [X]: $(grep -c '\[X\]' README.md)"
 make test lint check-gold 2>&1 | grep -E "passed|failed|All checks|gold rules"
 ```
 
-**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `52 passed` (hoặc `51 passed, 1 skipped`),
+**Đúng khi:** dòng đầu là `Số dòng còn [X]: 0`, sau đó có `63 passed` (hoặc `61 passed, 2 skipped`),
 `All checks passed!`, `N/N gold rules pass`.
 
 **Nếu lỗi:** còn `[X]` thì xem bước nào chưa làm: dòng Precision là bước 7, dòng Người trả lời là bước 10. Lint báo
@@ -1155,9 +1278,14 @@ human_vi = human_en = ""
 if os.path.exists("onboarding/ket_qua_bam_gio.csv"):
     rows = list(csv.DictReader(open("onboarding/ket_qua_bam_gio.csv")))
     m = {c: sum(int(r["giay"]) for r in rows if r["cach"] == c) / 60 / (10 * sum(r["cach"] == c for r in rows)) for c in "12"}
+    ok = {c: sum(int(r["dung"]) for r in rows if r["cach"] == c) / (10 * sum(r["cach"] == c for r in rows)) for c in "12"}
     people = len({r["nguoi"] for r in rows})
-    human_vi = f" Bài kiểm tra với {people} người: {m['1']:.1f} phút mỗi câu khi chỉ đọc code, {m['2']:.1f} phút khi dùng LegacyLens."
-    human_en = f" Timed test with {people} developer(s): {m['1']:.1f} min per question reading code vs {m['2']:.1f} min with LegacyLens."
+    human_vi = (f" Bài kiểm tra với {people} người mới, mỗi người 20 câu rút ngẫu nhiên từ ngân hàng 240 câu (AI soạn nháp, "
+                f"kiểm tra tự động với mã nguồn): {m['1']:.1f} phút mỗi câu và đúng {ok['1']:.0%} khi chỉ đọc code, "
+                f"{m['2']:.1f} phút và đúng {ok['2']:.0%} khi dùng LegacyLens.")
+    human_en = (f" Timed test with {people} new developers, each on 20 questions drawn from a 240-question bank "
+                f"(AI-drafted, checked against the source automatically): {m['1']:.1f} min per question and {ok['1']:.0%} correct reading "
+                f"the code vs {m['2']:.1f} min and {ok['2']:.0%} with LegacyLens.")
 print("TIẾNG VIỆT:")
 print(f"LegacyLens: agent đọc hiểu COBOL trên AWS CardDemo, chạy mô hình open-weight {model} trên Colab T4. "
       f"Trích business rule kèm trích dẫn dòng code: P/R/F1 {pct(ev['precision'])}/{pct(ev['recall'])}/{pct(ev['f1'])} "
@@ -1176,7 +1304,8 @@ Chép câu in ra vào CV, thêm link repo và link video. Câu cũng được l�
 
 **Đúng khi:** in hai đoạn TIẾNG VIỆT và ENGLISH, số khớp với bảng Kết quả trong README.
 
-Nói đúng về nhãn như trong câu: AI soạn nháp, bạn đối chiếu từng nhãn. Nếu được hỏi, nói rõ bản nháp đầu có trợ giúp
+Nói đúng về nhãn như trong câu: AI soạn nháp, bạn đối chiếu từng nhãn. Ngân hàng câu hỏi cũng do AI soạn nháp, bạn
+chỉ đọc soát một phần ở 10.0. Nếu được hỏi, nói rõ bản nháp đầu có trợ giúp
 của AI. Ôn `reports/ghi_chu_lan_thu.md` và bước 11 trước phỏng vấn.
 
 **Xong toàn bộ khi:** repo Public, CI xanh, README không còn `[X]`, CV có link repo và link video.
@@ -1293,7 +1422,7 @@ make lint
 make check-gold
 ```
 
-**Đúng khi:** `make test` in `52 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
+**Đúng khi:** `make test` in `63 passed`, `make lint` sạch, dòng cuối `check-gold` là `N/N gold rules pass` với N
 là số nhãn sau khi bạn duyệt.
 
 #### U5. Đẩy lên GitHub
@@ -1389,7 +1518,7 @@ make lint
 **Đúng khi:**
 
 - `make data` in `CardDemo @ 59cc6c2... -> data/carddemo`.
-- `make test` in `52 passed`.
+- `make test` in `63 passed`.
 - `make lint` in `All checks passed!` và `files already formatted`.
 
 **Nếu lỗi:** `make: python: No such file` thì chạy `make install PY=python3` và thêm `PY=python3` vào mọi lệnh

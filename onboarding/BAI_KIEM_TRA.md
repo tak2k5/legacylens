@@ -1,26 +1,19 @@
-# Bài kiểm tra onboarding: 20 câu về CardDemo
+# Bài kiểm tra onboarding với người thật
 
-Cách làm: chia đôi. Nhóm A (Q01-Q10) trả lời chỉ bằng đọc code, nhóm B (Q11-Q20) dùng `make ui`. Rồi đổi lại với một người khác (hoặc đổi nhóm sau một tuần). Ghi giờ bắt đầu, giờ xong, và tự chấm theo `questions.jsonl`. Không xem đáp án trước.
+Người làm bài làm trên mục **📝 Bài kiểm tra** của giao diện (`make ui`). Mỗi người nhận một đề 20 câu rút ngẫu nhiên
+từ `ngan_hang.jsonl`: 240 câu về 24 chương trình CardDemo, 10 câu mỗi chương trình. Mỗi câu trong đề thuộc một chương
+trình khác nhau, và mỗi đề có nhiều nhất một câu hỏi mã giao dịch CICS. Đề cố định theo số thứ tự của người làm bài, nên
+tải lại trang vẫn ra đúng đề đó. File câu trả lời ghi dòng `Đề: Q01=COSGN00C-03 ...`, nên lúc chấm luôn biết câu nào là
+câu nào trong ngân hàng.
 
-| Câu | Câu hỏi | Bắt đầu | Xong | Đúng? |
-| --- | --- | --- | --- | --- |
-| Q01 | Why would a daily transaction be rejected by the posting job CBTRN02C? List every reason code. | | | |
-| Q02 | What return code does CBTRN02C end with when some transactions were rejected? | | | |
-| Q03 | Which batch job runs the monthly interest program CBACT04C? | | | |
-| Q04 | After a successful sign-on, which program does an admin go to and which does a regular user go to? | | | |
-| Q05 | Is the sign-on user ID and password check case-sensitive? | | | |
-| Q06 | What message does the sign-on screen show for a user ID that does not exist? | | | |
-| Q07 | How is monthly interest calculated in CBACT04C? | | | |
-| Q08 | What interest rate is used when an account's group has no record in the disclosure group file? | | | |
-| Q09 | Which transaction type code and category code are used when CBACT04C posts interest? | | | |
-| Q10 | How much does an online bill payment in COBIL00C pay? | | | |
-| Q11 | When does the bill payment screen say there is nothing to pay? | | | |
-| Q12 | In what format must the amount be typed when adding a transaction in COTRN02C? | | | |
-| Q13 | How is the ID of a new transaction generated in COTRN02C? | | | |
-| Q14 | Which programs include the copybook CVACT01Y? | | | |
-| Q15 | Which files does CBTRN02C write to? | | | |
-| Q16 | In COTRN02C, where does PF3 take the user? | | | |
-| Q17 | What date format does COTRN02C require for the original and processing dates? | | | |
-| Q18 | Name three programs that can transfer control to the main menu COMEN01C. | | | |
-| Q19 | Which utility program does COTRN02C call to check that a date is valid? | | | |
-| Q20 | What happens to the cycle credit and cycle debit of an account when CBACT04C applies interest? | | | |
+- Phần 1 (Q01-Q10 hoặc Q11-Q20): chỉ đọc code. Dưới mỗi câu có tên chương trình, ghi chú đầu file và toàn bộ mã nguồn.
+- Phần 2: dùng LegacyLens (Hỏi đáp, Tài liệu, Bản đồ).
+- Người số lẻ đọc code ở Q01-Q10, người số chẵn đọc code ở Q11-Q20.
+
+Làm ngoài giao diện: `make paper N=3` ghi đề của người số 3 (`onboarding/tra_loi/de_nguoi3.md`) và hai file trả lời
+`nguoi3_phan1.txt`, `nguoi3_phan2.txt` có sẵn dòng `Đề:`. Người làm bài điền sau mỗi `Qnn:` rồi gửi lại.
+
+Mỗi câu trong ngân hàng có nhóm từ khóa của đáp án và vùng dòng trong mã nguồn. Các câu do AI soạn nháp từ mã nguồn;
+test `test_question_bank_answers_are_in_the_cited_lines` kiểm tra mọi nhóm từ khóa đều có trong vùng dòng được trích.
+
+`questions.jsonl` là 20 câu cố định dùng cho `make eval-qa` (agent tự trả lời) và cho các file mẫu trong `mau_thu/`.

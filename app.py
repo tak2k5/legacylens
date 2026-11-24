@@ -12,7 +12,24 @@ import streamlit as st
 from legacylens.aliases import expand, label, sample_questions
 from legacylens.citations import verify
 from legacylens.docgen import CARDDEMO_LINK, render
+from legacylens.exam import (
+    BANK,
+    DEFAULT_MINUTES,
+    MAX_PEOPLE,
+    METHOD_NAMES,
+    READ,
+    TOOL,
+    Exam,
+    email_ready,
+    paper,
+    paper_from_text,
+    parts,
+    questions_in,
+    send_copy,
+    summary,
+)
 from legacylens.index import Index
+from legacylens.qa import load_questions
 from legacylens.schema import RuleSet
 from legacylens.tools import Toolbox
 
@@ -37,6 +54,28 @@ def catalogue(src: str) -> dict[str, str]:
         name, _, what = line.partition(": ")
         out[name.split(" ")[0]] = what
     return out
+
+
+@st.cache_data
+def source_text(src: str, program: str) -> tuple[str, str, int]:
+    """(file name, full source, line count) for the code shown under a test question."""
+    path = Path(load_index(src).program(program).path)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return path.name, text, text.count("\n") + 1
+
+
+def question_context(q) -> None:
+    """Under a test question: which program it is about, what its header says, and the whole source."""
+    if not q.program:
+        return
+    p = idx.program(q.program)
+    name, text, n = source_text(SRC, q.program)
+    kind = "chạy theo lô (batch)" if p.kind == "batch" else "màn hình CICS (online)"
+    what = catalogue(SRC).get(q.program, "-")
+    note = f" Ghi chú đầu file: _{what}_" if what != "-" else ""
+    st.caption(f"Chương trình **{q.program}**, {kind}, file {name}, {n} dòng.{note}")
+    with st.expander(f"Xem toàn bộ mã nguồn {name}"):
+        st.code(text, language="cobol", line_numbers=True, height=420)
 
 
 def github_link(program: str, start: int, end: int) -> str:
@@ -69,8 +108,11 @@ st.sidebar.caption(
     f"{stats['programs']} chương trình · {stats['copybooks']} copybook · {stats['jcl_steps']} bước JCL · "
     f"{stats['loc']:,} dòng code"
 )
+st.sidebar.caption("🌗 Giao diện sáng/tối: bấm ⋮ ở góc trên bên phải → Settings → chọn Light, Dark hoặc theo máy.")
 
-tab_ask, tab_doc, tab_map = st.tabs(["💬 Hỏi đáp", "📄 Tài liệu thiết kế", "🗺️ Bản đồ chương trình"])
+tab_ask, tab_doc, tab_map, tab_exam = st.tabs(
+    ["💬 Hỏi đáp", "📄 Tài liệu thiết kế", "🗺️ Bản đồ chương trình", "📝 Bài kiểm tra"]
+)
 
 # ---------------------------------------------------------------- ask
 with tab_ask:
@@ -209,3 +251,253 @@ with tab_map:
     if impact:
         st.write(", ".join(label(p) for p in impact))
     st.code(tb.program_outline(program), language="text")
+
+
+# ---------------------------------------------------------------- timed test for a new developer (guide step 10)
+@st.fragment(run_every=1)
+def countdown(exam: Exam, person: str, method: str) -> None:
+    """Live countdown, redrawn every second on its own so the answers being typed are not touched."""
+    left = exam.remaining(person, method)
+    if left is None:
+        return
+    total = exam.minutes(person, method) * 60
+    if left >= 0:
+        st.markdown(f"### ⏳ Còn {left // 60:02d}:{left % 60:02d}")
+        st.progress(left / total)
+        if left <= 120:
+            st.warning("Sắp hết giờ, nhớ bấm Nộp ở cuối trang.")
+    else:
+        over = -left
+        st.error(
+            f"### ⏰ Hết giờ, quá {over // 60:02d}:{over % 60:02d}\n"
+            "Bạn vẫn nộp được, câu trả lời không bị mất. Thời gian thật vẫn được ghi lại."
+        )
+
+
+with tab_exam:
+    exam = Exam("onboarding")
+    st.subheader("Bài kiểm tra onboarding")
+    st.markdown(
+        "Bài này đo xem LegacyLens giúp người mới hiểu code nhanh hơn bao nhiêu. Có **2 phần, mỗi phần 10 câu**. "
+        "Đồng hồ chạy từ lúc bấm **Bắt đầu** tới lúc bấm **Nộp**, nên hãy làm liền một mạch. Trả lời ngắn, bằng "
+        "tiếng Việt hay tiếng Anh đều được. Không biết thì ghi đoán của bạn hoặc bỏ trống."
+    )
+    person = str(
+        st.number_input(
+            "Số thứ tự của bạn",
+            min_value=1,
+            max_value=MAX_PEOPLE,
+            value=1,
+            step=1,
+            key="exam-person",
+            help="Người mời bạn làm bài gửi kèm số này. Mỗi người một số, đừng dùng số của người khác.",
+        )
+    )
+    email = st.text_input(
+        "Email của bạn (không bắt buộc)",
+        key="exam-email",
+        placeholder="ten@gmail.com",
+        help="Chỉ dùng để gửi bản sao bài làm cho bạn, không được lưu lại.",
+        disabled=not email_ready(),
+    )
+    if not email_ready():
+        st.caption("Gửi email chưa bật trên máy này. Sau khi nộp, bạn vẫn tải được bài làm về máy.")
+    bank = load_questions(BANK)
+    questions = paper(bank, person)  # 20 questions, one per program, the same on every reload
+    order = parts(person)
+    if all(exam.is_done(person, m) for m, _ in order):
+        st.success(
+            "Bạn đã xong cả hai phần, cảm ơn bạn! Giờ bạn có thể hỏi agent thoải mái ở mục 💬 Hỏi đáp, ví dụ về những "
+            "câu bạn chưa chắc."
+        )
+    for k, (method, part) in enumerate(order, 1):
+        with st.container(border=True):
+            st.markdown(f"#### Phần {k}: {METHOD_NAMES[method]} ({part})")
+            if exam.is_done(person, method):
+                row = next(r for r in exam.done() if r["nguoi"] == person and r["cach"] == method)
+                st.success(f"Đã nộp, {int(row['giay']) // 60} phút {int(row['giay']) % 60} giây. Cảm ơn bạn!")
+                copy = Path("onboarding") / row["file"]
+                if copy.exists():
+                    st.download_button(
+                        "Tải bài làm về máy",
+                        copy.read_text(encoding="utf-8"),
+                        file_name=copy.name,
+                        key=f"dl-{copy.name}",
+                    )
+                note = st.session_state.get(f"mail-{person}-{method}")
+                if note:
+                    (st.info if note[0] else st.warning)(note[1])
+                continue
+            if k == 2 and not exam.is_done(person, order[0][0]):
+                st.caption("Làm xong phần 1 rồi mới tới phần này.")
+                continue
+            if method == READ:
+                st.info(
+                    "Chỉ đọc code: mở **Xem toàn bộ mã nguồn** dưới mỗi câu và tìm bằng Ctrl+F, hoặc đọc trên GitHub "
+                    f"([mã nguồn CardDemo]({CARDDEMO_LINK})). **Không** dùng mục Hỏi đáp, Tài liệu hay Bản đồ."
+                )
+            else:
+                st.info(
+                    "Dùng LegacyLens: hỏi ở mục 💬 Hỏi đáp, xem 📄 Tài liệu và 🗺️ Bản đồ. Mỗi câu hỏi mất 30 giây đến "
+                    "2 phút. Mở trích dẫn ✅ để kiểm tra trước khi ghi câu trả lời."
+                )
+            started = exam.started(person, method)
+            if started is None:
+                minutes = st.number_input(
+                    "Đếm ngược (phút)",
+                    min_value=1,
+                    max_value=180,
+                    value=DEFAULT_MINUTES,
+                    step=5,
+                    key=f"min-{person}-{method}",
+                    help="Hết giờ thì trang báo đỏ nhưng không khóa bài, thời gian thật vẫn được ghi.",
+                )
+                if st.button(f"Bắt đầu phần {k}", key=f"start-{person}-{method}", type="primary"):
+                    exam.start(person, method, minutes=int(minutes))
+                    st.rerun()
+                continue
+            countdown(exam, person, method)
+            st.caption("Đừng tải lại trang: câu trả lời đã gõ sẽ mất (đồng hồ thì không mất).")
+            with st.form(f"exam-{person}-{method}"):
+                answers = {}
+                for q in questions_in(questions, part):
+                    st.markdown(f"**{q.id}. {q.question}**")
+                    question_context(q)
+                    answers[q.id] = st.text_area(
+                        f"Trả lời {q.id}",
+                        key=f"ans-{person}-{method}-{q.id}",
+                        height=70,
+                        label_visibility="collapsed",
+                        placeholder=f"Câu trả lời {q.id}",
+                    )
+                if st.form_submit_button(f"Nộp phần {k}", type="primary"):
+                    row = exam.submit(person, method, part, answers, questions=questions)
+                    if email.strip():  # optional copy for the tester; the address is not stored anywhere
+                        body = (Path("onboarding") / row["file"]).read_text(encoding="utf-8")
+                        st.session_state[f"mail-{person}-{method}"] = send_copy(
+                            email, f"LegacyLens: bài làm phần {k} ({METHOD_NAMES[method]})", body
+                        )
+                    st.rerun()
+
+    result = summary("onboarding/ket_qua_bam_gio.csv")
+    with st.expander("📊 Kết quả: không có agent và có agent", expanded=result is not None):
+        if result is None:
+            st.caption(
+                "Chưa có. Kết quả hiện ở đây sau khi người chạy bài kiểm tra chấm xong ít nhất một phần mỗi cách "
+                "(bước 10.3 trong hướng dẫn)."
+            )
+        else:
+            import pandas as pd
+
+            read, tool = result[READ], result[TOOL]
+            pct = {m: round(100 * result[m]["dung"] / result[m]["tong"]) for m in (READ, TOOL)}
+            c1, c2 = st.columns(2)
+            c1.metric("Chỉ đọc code: phút mỗi câu", read["phut_moi_cau"])
+            c2.metric(
+                "Dùng LegacyLens: phút mỗi câu",
+                tool["phut_moi_cau"],
+                delta=round(tool["phut_moi_cau"] - read["phut_moi_cau"], 1),
+                delta_color="inverse",
+            )
+            c1.metric("Chỉ đọc code: câu đúng", f"{pct[READ]}% ({read['dung']}/{read['tong']})")
+            c2.metric(
+                "Dùng LegacyLens: câu đúng",
+                f"{pct[TOOL]}% ({tool['dung']}/{tool['tong']})",
+                delta=f"{pct[TOOL] - pct[READ]:+d} điểm %",
+            )
+            names = [METHOD_NAMES[READ], METHOD_NAMES[TOOL]]
+            g1, g2 = st.columns(2)
+            g1.caption("Phút mỗi câu (thấp hơn là tốt hơn)")
+            g1.bar_chart(
+                pd.DataFrame({"cách": names, "phút mỗi câu": [read["phut_moi_cau"], tool["phut_moi_cau"]]}),
+                x="cách",
+                y="phút mỗi câu",
+                horizontal=True,
+                height=200,
+            )
+            g2.caption("Tỉ lệ câu đúng (%)")
+            g2.bar_chart(
+                pd.DataFrame({"cách": names, "% đúng": [pct[READ], pct[TOOL]]}),
+                x="cách",
+                y="% đúng",
+                horizontal=True,
+                height=200,
+            )
+            both = {k: p for k, p in result["per_person"].items() if READ in p and TOOL in p}
+            if both:
+                st.caption("Từng người làm đủ hai cách: phút mỗi câu")
+                st.bar_chart(
+                    pd.DataFrame(
+                        {
+                            "người": [f"Người {k}" for k in both],
+                            names[0]: [p[READ]["phut_moi_cau"] for p in both.values()],
+                            names[1]: [p[TOOL]["phut_moi_cau"] for p in both.values()],
+                        }
+                    ),
+                    x="người",
+                    y=names,
+                    stack=False,
+                    horizontal=True,
+                    x_label="",
+                    y_label="phút mỗi câu",
+                    height=max(200, 45 * len(both)),
+                )
+            st.caption(
+                f"{result['nguoi']} người, {result['paired']} người làm đủ hai cách: {result['faster']} người nhanh "
+                f"hơn, {result['better']} người đúng nhiều hơn khi dùng LegacyLens. Mỗi người một đề ngẫu nhiên từ ngân "
+                "hàng 240 câu, mỗi câu về một chương trình khác nhau. Số câu đúng do người chạy bài kiểm tra quyết định, mô hình chỉ gợi ý."
+            )
+    with st.expander("📤 Chấm file câu trả lời (chỉ người chạy bài kiểm tra)"):
+        pin = os.getenv("LEGACYLENS_GRADE_PIN", "")
+        if not pin:
+            st.caption("Chưa có mã chấm bài trên máy này. Chạy lại khối 10.1 trong hướng dẫn để tạo mã.")
+        elif st.text_input("Mã chấm bài", type="password", key="grade-pin") != pin:
+            st.caption(
+                "Nhập mã chấm bài mà khối 10.1 in ra. Mã giữ cho người làm bài không xem được lý do chấm, "
+                "vì lý do chấm để lộ đáp án."
+            )
+        else:
+            from legacylens.grade import grade_text, guess_part, is_sample
+
+            for up in st.file_uploader(
+                "File câu trả lời (.txt hoặc .md, mỗi câu một dòng dạng Q01: ...). File mẫu cũng chấm được.",
+                type=["txt", "md"],
+                accept_multiple_files=True,
+                key="grade-files",
+            ):
+                text = up.getvalue().decode("utf-8", errors="replace")
+                sample = is_sample(text)
+                with st.container(border=True):
+                    st.markdown(f"**{up.name}**" + (" · file mẫu" if sample else ""))
+                    halves = ["Q01-Q10", "Q11-Q20"]
+                    part = st.radio(
+                        "Phần", halves, index=halves.index(guess_part(text)), horizontal=True, key=f"gp-{up.name}"
+                    )
+                    key = f"graded-{up.name}-{part}"
+                    if st.button("Chấm bằng mô hình (vài phút)", key=f"gb-{up.name}"):
+                        from legacylens.agent import Agent
+
+                        try:
+                            with st.spinner("Mô hình đang chấm 10 câu..."):
+                                drawn = paper_from_text(text, bank) or load_questions("onboarding/questions.jsonl")
+                                st.session_state[key] = grade_text(Agent(idx), drawn, text, up.name, part)
+                        except Exception as exc:  # Colab stopped or no .env
+                            st.error(f"Không gọi được mô hình ({type(exc).__name__}). Làm bước 6.2 rồi chấm lại.")
+                    if key in st.session_state:
+                        model_ok, kw_ok, report = st.session_state[key]
+                        st.markdown(report.split("\n", 1)[1])  # drop the "# Chấm ..." title, the box names the file
+                        st.download_button(
+                            "Tải bảng chấm", report, file_name=Path(up.name).stem + ".cham.md", key=f"gd-{key}"
+                        )
+                        if sample:
+                            st.warning("File mẫu: chỉ để thử cách chấm. Không ghi vào kết quả, không đưa vào CV.")
+                        else:
+                            st.info(
+                                "Mô hình chỉ gợi ý. Muốn ghi vào kết quả: bấm lưu dưới đây rồi làm bước 10.3b, "
+                                "bạn đọc lý do và tự quyết số câu đúng."
+                            )
+                            if st.button("Lưu file vào onboarding/tra_loi", key=f"gs-{key}"):
+                                dest = Path("onboarding/tra_loi") / Path(up.name).name
+                                dest.parent.mkdir(parents=True, exist_ok=True)
+                                dest.write_text(text, encoding="utf-8")
+                                st.success(f"Đã lưu {dest}. Ở bước 10.3b gõ tên file: {dest.name}")

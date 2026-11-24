@@ -333,15 +333,44 @@ def _unreachable_row(row: dict) -> bool:
     return any(k in err for k in ("Connection error", "timed out", "524", "530", "1033"))
 
 
+def cmd_paper(args) -> None:
+    """A person's paper for answering outside the UI (guide 10.3b): questions to send, and one answer file per part."""
+    from .exam import BANK, METHOD_NAMES, paper, paper_line, parts, questions_in
+    from .qa import load_questions
+
+    questions = paper(load_questions(args.bank or BANK), args.person)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    sheet = [f"# Bài kiểm tra LegacyLens, người {args.person}", ""]
+    for k, (method, part) in enumerate(parts(args.person), 1):
+        qs = questions_in(questions, part)
+        sheet += [f"## Phần {k}: {METHOD_NAMES[method]} ({part})", ""]
+        sheet += [f"{q.id}. [{q.program}] {q.question}" for q in qs] + [""]
+        answers = [f"Người {args.person}, {METHOD_NAMES[method]}, {part}", paper_line(qs), ""]
+        answers += [f"{q.id}: " for q in qs]
+        (out / f"nguoi{args.person}_phan{k}.txt").write_text("\n".join(answers) + "\n", encoding="utf-8")
+    (out / f"de_nguoi{args.person}.md").write_text("\n".join(sheet), encoding="utf-8")
+    print("\n".join(sheet))
+    print(
+        f"wrote {out}/de_nguoi{args.person}.md, {out}/nguoi{args.person}_phan1.txt, {out}/nguoi{args.person}_phan2.txt"
+    )
+
+
 def cmd_grade(args) -> None:
     from .agent import Agent
+    from .exam import paper_from_text
     from .grade import grade_file
     from .qa import load_questions
 
     path = Path(args.file)
     if not path.exists():
         sys.exit(f"not found: {path}")
-    model_ok, kw_ok, report = grade_file(Agent(_index(args)), load_questions(args.questions), path, args.part)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    bank = Path(args.bank)
+    questions = (paper_from_text(text, load_questions(bank)) if bank.exists() else None) or load_questions(
+        args.questions
+    )  # a file from the UI names its bank questions; an older file uses the fixed Q01-Q20
+    model_ok, kw_ok, report = grade_file(Agent(_index(args)), questions, path, args.part)
     out = path.with_suffix(".cham.md")
     out.write_text(report, encoding="utf-8")
     print(report)
@@ -478,10 +507,16 @@ def build_parser() -> argparse.ArgumentParser:
     ge.add_argument("--field", default="summary")
     ge.add_argument("--gold", default="gold/rules.jsonl")
     ge.set_defaults(fn=cmd_gold_edit)
+    pa = sub.add_parser("paper", help="Write one person's random test paper and answer files (step 10.3b)")
+    pa.add_argument("person")
+    pa.add_argument("--bank", default=None)
+    pa.add_argument("--out", default="onboarding/tra_loi")
+    pa.set_defaults(fn=cmd_paper)
     gr = sub.add_parser("grade", help="Grade a tester's written answers with the LLM (step 10)")
     gr.add_argument("file")
     gr.add_argument("--part", required=True, choices=["Q01-Q10", "Q11-Q20"])
     gr.add_argument("--questions", default="onboarding/questions.jsonl")
+    gr.add_argument("--bank", default="onboarding/ngan_hang.jsonl")
     gr.set_defaults(fn=cmd_grade)
     rd = sub.add_parser("readme", help="Write measured numbers from reports/ into the README results table")
     rd.add_argument("--readme", default="README.md")

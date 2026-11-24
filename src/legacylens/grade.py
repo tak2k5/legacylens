@@ -81,12 +81,26 @@ def _trace():
     return Trace()
 
 
+def guess_part(text: str) -> str:
+    """Q01-Q10 or Q11-Q20: the range named in the first lines, else the half holding most of the answers."""
+    head = text[:500]
+    for part in ("Q01-Q10", "Q11-Q20"):
+        if part in head:
+            return part
+    ids = [int(q[1:]) for q in parse_answers(text)]
+    return "Q11-Q20" if sum(i > 10 for i in ids) > len(ids) / 2 else "Q01-Q10"
+
+
 def grade_file(agent, questions: list[Question], path: Path, part: str) -> tuple[int, int, str]:
     """Return (model_correct, keyword_correct, markdown report) for one part (Q01-Q10 or Q11-Q20)."""
+    return grade_text(agent, questions, path.read_text(encoding="utf-8", errors="replace"), path.name, part)
+
+
+def grade_text(agent, questions: list[Question], text: str, name: str, part: str) -> tuple[int, int, str]:
+    """Same as grade_file for text that is not on disk (a file uploaded in the UI)."""
     a, b = (1, 10) if part == "Q01-Q10" else (11, 20)
-    text = path.read_text(encoding="utf-8", errors="replace")
     answers = parse_answers(text)
-    lines = [f"# Chấm {path.name}, {part}", ""]
+    lines = [f"# Chấm {name}, {part}", ""]
     if is_sample(text):
         lines += [f"**{SAMPLE_MARK}: không phải dữ liệu thật, không ghi vào kết quả.**", ""]
     lines += ["| Câu | Mô hình | Lý do | Từ khóa |", "| --- | --- | --- | --- |"]

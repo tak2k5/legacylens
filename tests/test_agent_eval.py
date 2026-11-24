@@ -658,3 +658,196 @@ def test_sample_questions_come_from_the_guide_then_general_ones():
     assert sample_questions("COSGN00C", guide)[:2] == ["What does PF3 do?", "Which file?"]
     assert sample_questions("COUSR01C", guide)[0] == "Which fields are required?"
     assert sample_questions("XYZ")[0] == "What does XYZ do for the business?" and len(sample_questions("XYZ")) == 3
+
+
+def test_exam_keeps_the_clock_and_writes_answers_for_grading(tmp_path):
+    from legacylens.exam import Exam, parts
+    from legacylens.grade import parse_answers
+
+    assert parts("1") == [("1", "Q01-Q10"), ("2", "Q11-Q20")] and parts("2")[0] == ("1", "Q11-Q20")
+    ex = Exam(tmp_path)
+    with pytest.raises(ValueError):
+        ex.submit("1", "1", "Q01-Q10", {"Q01": "x"})
+    assert ex.start("1", "1", now=100.0) == 100.0 and ex.start("1", "1", now=500.0) == 100.0  # reload keeps it
+    row = ex.submit("1", "1", "Q01-Q10", {"Q02": "return code 4", "Q01": "100, 101\n102"}, now=700.0)
+    assert row == {
+        "nguoi": "1",
+        "cach": "1",
+        "cau": "Q01-Q10",
+        "giay": "600",
+        "file": "tra_loi/nguoi1_cach1.txt",
+        "phut_dem_nguoc": "15",
+    }
+    text = (tmp_path / row["file"]).read_text(encoding="utf-8")
+    assert parse_answers(text)["Q02"] == "return code 4" and ex.is_done("1", "1") and not ex.is_done("1", "2")
+    with pytest.raises(ValueError):
+        ex.start("1", "1")
+
+
+def test_exam_countdown_warns_but_keeps_measuring(tmp_path):
+    from legacylens.exam import FIELDS, Exam
+
+    ex = Exam(tmp_path)
+    ex.start("2", "1", now=0.0, minutes=20)
+    assert ex.minutes("2", "1") == 20 and ex.remaining("2", "1", now=60.0) == 1140
+    assert ex.remaining("2", "1", now=1500.0) == -300  # time is up: the overrun is still counted, never cut off
+    with pytest.raises(ValueError):
+        ex.start("2", "2", minutes=0)
+    old = tmp_path / "bai_lam.csv"  # a log from the version without the countdown column still appends cleanly
+    old.write_text("nguoi,cach,cau,giay,file\n", encoding="utf-8")
+    assert ex.submit("2", "1", "Q11-Q20", {"Q11": "x"}, now=1500.0)["giay"] == "1500"
+    assert ex.done()[0]["file"] == "tra_loi/nguoi2_cach1.txt" and FIELDS[-1] == "phut_dem_nguoc"
+
+
+def test_exam_copy_by_email_is_optional(monkeypatch):
+    import smtplib
+
+    from legacylens.exam import send_copy
+
+    monkeypatch.delenv("SMTP_USER", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    assert send_copy("not-an-email", "s", "b")[0] is False
+    assert send_copy("a@b.vn", "s", "b") == (False, "Chưa cấu hình gửi email (SMTP_USER, SMTP_PASSWORD trong .env).")
+    sent = []
+
+    class FakeSMTP:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def starttls(self):
+            pass
+
+        def login(self, user, pw):
+            pass
+
+        def send_message(self, msg):
+            sent.append(msg)
+
+    monkeypatch.setenv("SMTP_USER", "me@gmail.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "x")
+    monkeypatch.setattr(smtplib, "SMTP", FakeSMTP)
+    ok, _ = send_copy("a@b.vn", "Bài làm", "Q01: 4")
+    assert ok and sent[0]["To"] == "a@b.vn" and "Q01: 4" in sent[0].get_content()
+
+
+def test_exam_summary_compares_both_methods_only_when_both_are_graded(tmp_path):
+    from legacylens.exam import summary
+
+    f = tmp_path / "ket_qua_bam_gio.csv"
+    assert summary(f) is None
+    f.write_text("nguoi,cach,cau,giay,dung\n1,1,Q01-Q10,1500,4\n", encoding="utf-8")
+    assert summary(f) is None  # one side only: nothing to compare yet
+    f.write_text(f.read_text(encoding="utf-8") + "1,2,Q11-Q20,600,8\n", encoding="utf-8")
+    s = summary(f)
+    assert s["1"] == {"phut_moi_cau": 2.5, "dung": 4, "tong": 10} and s["2"]["phut_moi_cau"] == 1.0
+    assert s["2"]["dung"] == 8 and s["nguoi"] == 1 and (s["paired"], s["faster"], s["better"]) == (1, 1, 1)
+
+
+def test_exam_scales_to_a_group_and_draws_the_comparison(tmp_path):
+    from legacylens.exam import parts, report_markdown, summary
+
+    assert parts("3") == parts("1") and parts("20") == parts("2")
+    with pytest.raises(ValueError):
+        parts("31")
+    f = tmp_path / "ket_qua_bam_gio.csv"
+    f.write_text(
+        "nguoi,cach,cau,giay,dung\n1,1,Q01-Q10,1500,4\n1,2,Q11-Q20,600,8\n2,1,Q11-Q20,1200,5\n2,2,Q01-Q10,1300,5\n"
+        "3,1,Q01-Q10,900,3\n",
+        encoding="utf-8",
+    )
+    s = summary(f)
+    assert s["nguoi"] == 3 and s["paired"] == 2 and s["faster"] == 1 and s["better"] == 1
+    md = report_markdown(s)
+    assert md.count("xychart-beta") == 3 and 'x-axis ["Người 1", "Người 2"]' in md
+    assert "| 3 | 1.5 | 3/10 | - | - |" in md
+
+
+def test_grade_guesses_the_part_of_an_uploaded_file():
+    from legacylens.grade import guess_part
+
+    assert guess_part("Người 2, chỉ đọc code, Q11-Q20, 900 giây\n\nQ11: x") == "Q11-Q20"
+    assert guess_part("Q12: a\nQ13: b\nQ01: c") == "Q11-Q20" and guess_part("Q01: a\nQ02: b") == "Q01-Q10"
+    sample = Path(__file__).parents[1] / "onboarding" / "mau_thu" / "sv_a_doc_code.txt"
+    assert guess_part(sample.read_text(encoding="utf-8")) == "Q01-Q10"
+
+
+BANK = Path(__file__).parent.parent / "onboarding/ngan_hang.jsonl"
+
+
+def test_question_bank_has_ten_questions_for_each_of_24_programs():
+    from legacylens.qa import load_questions
+
+    bank = load_questions(BANK)
+    per: dict[str, list] = {}
+    for q in bank:
+        assert q.id.startswith(f"{q.program}-") and [e.program for e in q.expected] == [q.program], q.id
+        per.setdefault(q.program, []).append(q.id)
+    assert len(bank) == 240 == len({q.id for q in bank}) and len(per) == 24
+    assert all(len(ids) == 10 for ids in per.values())
+
+
+@pytest.mark.skipif(not CARDDEMO.exists(), reason="run `make data` first")
+def test_question_bank_answers_are_in_the_cited_lines():
+    """Every keyword group of the answer key appears in the cited code, so a question can be answered from it."""
+    from legacylens.qa import load_questions
+
+    real = Index.build(CARDDEMO)
+    for q in load_questions(BANK):
+        assert all(verify(c, real)["valid"] for c in q.expected), q.id
+        e = q.expected[0]
+        text = "\n".join(t for _, t in real.read_lines(real.program(e.program).path, e.start_line, e.end_line))
+        for group in q.keywords:
+            assert any(w.lower() in text.lower() for w in group), (q.id, group)
+
+
+def test_exam_paper_draws_one_question_per_program_and_records_it(tmp_path):
+    from legacylens.exam import Exam, paper, paper_from_text, questions_in
+    from legacylens.grade import parse_answers
+    from legacylens.qa import load_questions
+
+    bank = load_questions(BANK)
+    p1 = paper(bank, "1", seed="s")
+    assert [q.id for q in p1] == [f"Q{i:02d}" for i in range(1, 21)]
+    assert len({q.program for q in p1}) == 20  # no two questions about the same program
+    for n in range(1, 31):
+        assert sum(q.topic == "transid" for q in paper(bank, str(n), seed="s")) <= 1
+    assert paper(bank, "1", seed="s") == p1  # a reload shows the same paper
+    assert [q.bank_id for q in paper(bank, "2", seed="s")] != [q.bank_id for q in p1]
+    assert [q.bank_id for q in paper(bank, "1", seed="t")] != [q.bank_id for q in p1]
+    with pytest.raises(ValueError):
+        paper(bank, "31")
+    ex = Exam(tmp_path)
+    ex.start("1", "1", now=0.0)
+    row = ex.submit("1", "1", "Q11-Q20", {"Q11": "x"}, now=60.0, questions=p1)
+    text = (tmp_path / row["file"]).read_text(encoding="utf-8")
+    back = paper_from_text(text, bank)
+    assert back == questions_in(p1, "Q11-Q20") and parse_answers(text) == {"Q11": "x"}
+    assert paper_from_text("Q01: no paper line", bank) is None
+    with pytest.raises(ValueError):
+        paper_from_text("Đề: Q01=NOPE-01", bank)
+
+
+def test_program_function_is_the_header_line(idx):
+    from legacylens.tools import Toolbox
+
+    tb = Toolbox(idx)
+    name = sorted(idx.programs)[0]
+    assert f"{name} ({idx.program(name).kind}): {tb.program_function(name) or '-'}" in tb.program_catalogue()
+
+
+def test_cli_paper_writes_a_sheet_and_answer_files_the_grader_reads(tmp_path, capsys):
+    from legacylens.exam import paper_from_text
+    from legacylens.grade import guess_part
+    from legacylens.qa import load_questions
+
+    main(["--src", str(FIX), "paper", "4", "--bank", str(BANK), "--out", str(tmp_path)])
+    assert "Phần 1: chỉ đọc code (Q11-Q20)" in (tmp_path / "de_nguoi4.md").read_text(encoding="utf-8")
+    text = (tmp_path / "nguoi4_phan1.txt").read_text(encoding="utf-8")
+    drawn = paper_from_text(text, load_questions(BANK))
+    assert [q.id for q in drawn] == [f"Q{i}" for i in range(11, 21)] and guess_part(text) == "Q11-Q20"
